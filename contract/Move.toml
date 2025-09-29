@@ -1,0 +1,15 @@
+[package]
+name = "AptSend"
+version = "1.0.0"
+authors = []
+
+[addresses]
+aptsend_addr = "_"
+
+[dev-addresses]
+aptsend_addr = "0x96a85483670ce99043549ff9e11ed9f5219861e1733eb4cb2f1959c2ac6bab31"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-framework.git", rev = "mainnet", subdir = "aptos-framework" }
+
+[dev-dependencies]
