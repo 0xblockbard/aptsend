@@ -1,40 +1,38 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-// Internal Components
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Header } from "@/components/Header";
-import { WalletDetails } from "@/components/WalletDetails";
-import { NetworkInfo } from "@/components/NetworkInfo";
-import { AccountInfo } from "@/components/AccountInfo";
-import { TransferAPT } from "@/components/TransferAPT";
-import { MessageBoard } from "@/components/MessageBoard";
-import { TopBanner } from "@/components/TopBanner";
+import { VaultBalanceProvider } from "./contexts/VaultBalanceContext";
+import Landing from "./pages/Landing";
+import Dashboard from "./pages/Dashboard";
+import Checker from "./pages/Checker";
+import Send from "./pages/Send";
 
-function App() {
+function RouteGuard({ children }: { children: React.ReactNode }) {
   const { connected } = useWallet();
-
-  return (
-    <>
-      <TopBanner />
-      <Header />
-      <div className="flex items-center justify-center flex-col">
-        {connected ? (
-          <Card>
-            <CardContent className="flex flex-col gap-10 pt-6">
-              <WalletDetails />
-              <NetworkInfo />
-              <AccountInfo />
-              <TransferAPT />
-              <MessageBoard />
-            </CardContent>
-          </Card>
-        ) : (
-          <CardHeader>
-            <CardTitle>To get started Connect a wallet</CardTitle>
-          </CardHeader>
-        )}
-      </div>
-    </>
-  );
+  if (!connected) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
-export default App;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <VaultBalanceProvider>
+        <Header />
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RouteGuard>
+                <Dashboard />
+              </RouteGuard>
+            }
+          />
+          <Route path="/checker" element={<Checker />} />
+          <Route path="/send" element={<Send />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </VaultBalanceProvider>
+    </BrowserRouter>
+  );
+}
