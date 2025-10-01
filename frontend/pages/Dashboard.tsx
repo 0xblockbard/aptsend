@@ -1,116 +1,95 @@
 import { useState } from "react";
+import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import VaultCard from "../components/ui/dashboard/VaultCard";
 import ChannelList from "../components/ui/dashboard/ChannelList";
+import { useChannels } from "../hooks/useChannels";
+import { useToast } from "@/components/ui/use-toast";
 
 type ChannelType = "twitter" | "telegram" | "email" | "discord" | "evm";
-type ChannelStatus = "pending" | "linked" | "failed";
-
-type LinkedAccount = {
-  id: string;
-  identifier: string;
-  status: ChannelStatus;
-};
-
-type Channel = {
-  type: ChannelType;
-  label: string;
-  icon: string;
-  accounts: LinkedAccount[];
-};
-
 type VaultInfo = {
   address: string;
-  balances: {
-    apt: string;
-    usdc?: string;
-    usdt?: string;
-  };
+  balances: { apt: string; usdc?: string; usdt?: string };
 } | null;
-
 type VaultAction = "deposit" | "withdraw" | null;
 
 const MOCK_VAULT: VaultInfo = {
   address: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-  balances: {
-    apt: "125.45",
-    usdc: "1,250.00",
-    usdt: "500.00"
-  }
+  balances: { apt: "125.45", usdc: "1,250.00", usdt: "500.00" }
 };
 
-const INITIAL_CHANNELS: Channel[] = [
-  {
-    type: "twitter",
-    label: "Twitter",
-    icon: "𝕏",
-    accounts: [
-      { id: "1", identifier: "@johndoe", status: "linked" },
-      { id: "2", identifier: "@johndoe_alt", status: "linked" }
-    ]
-  },
-  {
-    type: "telegram",
-    label: "Telegram",
-    icon: "✈️",
-    accounts: []
-  },
-  {
-    type: "email",
-    label: "Email",
-    icon: "✉️",
-    accounts: [
-      { id: "3", identifier: "john@example.com", status: "linked" }
-    ]
-  },
-  {
-    type: "discord",
-    label: "Discord",
-    icon: "💬",
-    accounts: []
-  },
-  {
-    type: "evm",
-    label: "EVM Wallet",
-    icon: "⟠",
-    accounts: []
-  }
-];
-
 export default function Dashboard() {
-  const [channels, setChannels] = useState<Channel[]>(INITIAL_CHANNELS);
+  const { account } = useWallet();
+  const { toast } = useToast();
+  const { identities, isLoading, syncChannel, unlinkAccount } = useChannels(account?.address);
+  
   const [expandedChannel, setExpandedChannel] = useState<ChannelType | null>(null);
   const [vault] = useState<VaultInfo>(MOCK_VAULT);
   const [vaultAction, setVaultAction] = useState<VaultAction>(null);
 
-  const handleSync = (channelType: ChannelType) => {
-    console.log(`Syncing ${channelType}...`);
-  };
+  const channels = [
+    {
+      type: "twitter" as const,
+      label: "Twitter",
+      icon: "𝕏",
+      accounts: identities.twitter || [],
+    },
+    {
+      type: "telegram" as const,
+      label: "Telegram",
+      icon: "✈️",
+      accounts: identities.telegram || [],
+    },
+    {
+      type: "email" as const,
+      label: "Email",
+      icon: "✉️",
+      accounts: identities.email || [],
+    },
+    {
+      type: "discord" as const,
+      label: "Discord",
+      icon: "💬",
+      accounts: identities.discord || [],
+    },
+    {
+      type: "evm" as const,
+      label: "EVM Wallet",
+      icon: "⟠",
+      accounts: identities.evm || [],
+    },
+  ];
 
-  const handleUnlink = (channelType: ChannelType, accountId: string) => {
-    setChannels(prev =>
-      prev.map(channel =>
-        channel.type === channelType
-          ? {
-              ...channel,
-              accounts: channel.accounts.filter(acc => acc.id !== accountId)
-            }
-          : channel
-      )
-    );
+  const handleSync = async (channelType: ChannelType) => {
+    const result = await syncChannel(channelType);
     
-    // Close expansion if no accounts left
-    const updatedChannel = channels.find(c => c.type === channelType);
-    if (updatedChannel && updatedChannel.accounts.length === 1) {
-      setExpandedChannel(null);
+    if (result.success) {
+      toast({
+        title: "Connection Successful",
+        description: `${channelType} account connected successfully.`,
+      });
+    } else {
+      toast({
+        title: "Connection Failed",
+        description: result.error || "Failed to connect account",
+        variant: "destructive",
+      });
     }
   };
 
-  const toggleExpand = (channelType: ChannelType) => {
-    setExpandedChannel(prev => prev === channelType ? null : channelType);
+  const handleUnlink = async (channelType: ChannelType, accountId: string) => {
+    await unlinkAccount(channelType, accountId);
+    toast({ 
+      title: "Account Unlinked",
+      description: `${channelType} account has been removed.`,
+    });
   };
 
   const handleVaultAction = (currency: string, amount: string) => {
-    console.log(`${vaultAction}: ${amount} ${currency.toUpperCase()}`);
+    console.log(`${vaultAction}: ${amount} ${currency}`);
+    toast({
+      title: `${vaultAction === 'deposit' ? 'Deposit' : 'Withdrawal'} Initiated`,
+      description: `Processing ${amount} ${currency}...`,
+    });
     setVaultAction(null);
   };
 
@@ -130,7 +109,7 @@ export default function Dashboard() {
           <ChannelList
             channels={channels}
             expandedChannel={expandedChannel}
-            onToggleExpand={toggleExpand}
+            onToggleExpand={(type) => setExpandedChannel(prev => prev === type ? null : type)}
             onSync={handleSync}
             onUnlink={handleUnlink}
           />

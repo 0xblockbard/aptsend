@@ -60,7 +60,7 @@ export default function ChannelCard({
 
         <div
           className={`h-3 w-3 rounded-full flex-shrink-0 ${
-            hasAccounts ? "bg-green-500" : "bg-red-500"
+            hasAccounts ? "bg-green-500" : "bg-gray-400"
           }`}
           title={hasAccounts ? "Connected" : "Not connected"}
         />
