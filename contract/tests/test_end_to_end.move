@@ -4,6 +4,7 @@ module aptsend_addr::aptsend_tests {
     use std::signer;
     use std::option;
     use std::string;
+    use std::vector;
     use std::bcs;
 
     use aptos_framework::account;
@@ -1612,6 +1613,375 @@ module aptsend_addr::aptsend_tests {
         
         // Non-admin tries to set fee receiver - should fail
         aptsend::admin_set_fee_receiver(unauthorized, @0xFEE);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    // ======================== Unsync User Tests ========================
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_unsync_user_removes_route(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register user with telegram
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Sync user with discord
+        aptsend::sync_user(admin, user_addr, b"discord", u128_to_bytes(22222));
+        
+        // Verify both routes exist
+        let telegram_vault = aptsend::get_route_target_vault(b"telegram", u128_to_bytes(11111));
+        let discord_vault  = aptsend::get_route_target_vault(b"discord", u128_to_bytes(22222));
+        let primary_vault  = aptsend::get_primary_vault_for_owner(user_addr);
+        assert!(telegram_vault == primary_vault, 1);
+        assert!(discord_vault == primary_vault, 2);
+        
+        // Unsync discord
+        aptsend::unsync_user(admin, user_addr, b"discord", u128_to_bytes(22222));
+        
+        // Verify telegram route still exists
+        let telegram_vault_after = aptsend::get_route_target_vault(b"telegram", u128_to_bytes(11111));
+        assert!(telegram_vault_after == primary_vault, 3);
+
+        // Verify discord route no longer exists
+        let discord_route_exists = aptsend::route_exists(b"discord", u128_to_bytes(22222));
+        assert!(!discord_route_exists, 4);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_unsync_user_updates_profile(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register with telegram
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Sync with discord
+        aptsend::sync_user(admin, user_addr, b"discord", u128_to_bytes(22222));
+        
+        // Verify discord ID is in profile
+        let discord_ids = aptsend::get_user_channel_ids(user_addr, b"discord");
+        assert!(option::is_some(&discord_ids), 1);
+        
+        // Unsync discord
+        aptsend::unsync_user(admin, user_addr, b"discord", u128_to_bytes(22222));
+        
+        // Verify discord channel is removed from profile (no IDs left)
+        let discord_ids_after = aptsend::get_user_channel_ids(user_addr, b"discord");
+        assert!(option::is_none(&discord_ids_after), 2);
+        
+        // Verify telegram still exists
+        let telegram_ids = aptsend::get_user_channel_ids(user_addr, b"telegram");
+        assert!(option::is_some(&telegram_ids), 3);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_unsync_one_of_multiple_channel_ids(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register with first telegram ID
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Sync with second telegram ID
+        aptsend::sync_user(admin, user_addr, b"telegram", u128_to_bytes(22222));
+        
+        // Verify both IDs exist
+        let telegram_ids = aptsend::get_user_channel_ids(user_addr, b"telegram");
+        assert!(option::is_some(&telegram_ids), 1);
+        let ids = option::destroy_some(telegram_ids);
+        assert!(vector::length(&ids) == 2, 2);
+        
+        // Unsync second telegram ID
+        aptsend::unsync_user(admin, user_addr, b"telegram", u128_to_bytes(22222));
+        
+        // Verify only first ID remains
+        let telegram_ids_after = aptsend::get_user_channel_ids(user_addr, b"telegram");
+        assert!(option::is_some(&telegram_ids_after), 3);
+        let ids_after = option::destroy_some(telegram_ids_after);
+        assert!(vector::length(&ids_after) == 1, 4);
+        assert!(*vector::borrow(&ids_after, 0) == u128_to_bytes(11111), 5);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_unsync_last_channel_identity(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register with only telegram
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Verify route exists
+        let telegram_vault = aptsend::get_route_target_vault(b"telegram", u128_to_bytes(11111));
+        let primary_vault = aptsend::get_primary_vault_for_owner(user_addr);
+        assert!(telegram_vault == primary_vault, 1);
+        
+        // Unsync the only channel - should succeed (user can still use direct vault access)
+        aptsend::unsync_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Verify primary vault still exists and is accessible
+        let vault = aptsend::get_primary_vault_for_owner(user_addr);
+        assert!(vault == primary_vault, 2);
+
+        // Verify telegram route no longer exists
+        let telegram_route_exists = aptsend::route_exists(b"telegram", u128_to_bytes(11111));
+        assert!(!telegram_route_exists, 3);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    #[expected_failure(abort_code = 4, location = aptsend_addr::aptsend)] // E_NOT_REGISTERED
+    fun test_unsync_user_not_registered_fails(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Try to unsync without registering - should fail
+        aptsend::unsync_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user_a = @0x456, user_b = @0x789)]
+    #[expected_failure(abort_code = 7, location = aptsend_addr::aptsend)] // E_UNAUTHORIZED
+    fun test_unsync_other_users_channel_fails(
+        aptos_framework: &signer,
+        admin: &signer,
+        user_a: &signer,
+        user_b: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_a_addr = signer::address_of(user_a);
+        let user_b_addr = signer::address_of(user_b);
+        
+        // User A registers with telegram
+        aptsend::register_user(admin, user_a_addr, b"telegram", u128_to_bytes(11111));
+        
+        // User B registers with discord
+        aptsend::register_user(admin, user_b_addr, b"discord", u128_to_bytes(22222));
+        
+        // User B tries to unsync User A's telegram - should fail
+        aptsend::unsync_user(admin, user_b_addr, b"telegram", u128_to_bytes(11111));
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_unsync_nonexistent_route_safe(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register with telegram
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Try to unsync a channel that was never synced - should not fail
+        aptsend::unsync_user(admin, user_addr, b"discord", u128_to_bytes(99999));
+        
+        // Verify telegram route still exists
+        let telegram_vault = aptsend::get_route_target_vault(b"telegram", u128_to_bytes(11111));
+        let primary_vault = aptsend::get_primary_vault_for_owner(user_addr);
+        assert!(telegram_vault == primary_vault, 1);
+
+        // Verify telegram route still exists
+        let telegram_route_exists = aptsend::route_exists(b"telegram", u128_to_bytes(11111));
+        assert!(telegram_route_exists, 2);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    #[expected_failure(abort_code = 7, location = aptsend_addr::aptsend)] // E_UNAUTHORIZED
+    fun test_unsync_temp_route_fails(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register sender
+        aptsend::register_user(admin, @0x999, b"telegram", u128_to_bytes(11111));
+        let coins = mint_apt(&mint_cap, 1000000);
+        account::create_account_for_test(@0x999);
+        coin::register<AptosCoin>(&account::create_signer_for_test(@0x999));
+        coin::deposit(@0x999, coins);
+        aptsend::deposit_to_primary_vault(&account::create_signer_for_test(@0x999), 500000);
+        
+        // Send to unregistered user (creates temp route)
+        aptsend::transfer_within_channel(
+            admin,
+            b"telegram",
+            u128_to_bytes(11111),
+            u128_to_bytes(22222),
+            100000
+        );
+        
+        // Verify temp route was created
+        let telegram_vault_status = aptsend::get_route_status(b"telegram", u128_to_bytes(22222));
+        assert!(telegram_vault_status == 0, 1); // ROUTE_STATUS_TEMP
+        
+        // Register user with different channel
+        aptsend::register_user(admin, user_addr, b"discord", u128_to_bytes(33333));
+        
+        // User tries to unsync the temp route - should fail (not their route)
+        aptsend::unsync_user(admin, user_addr, b"telegram", u128_to_bytes(22222));
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456, unauthorized = @0x999)]
+    #[expected_failure(abort_code = 7, location = aptsend_addr::aptsend)] // E_UNAUTHORIZED
+    fun test_unsync_user_unauthorized_service_fails(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer,
+        unauthorized: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register user
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Unauthorized signer tries to unsync - should fail
+        aptsend::unsync_user(unauthorized, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr)]
+    #[expected_failure(abort_code = 2, location = aptsend_addr::aptsend)] // E_PAUSED
+    fun test_unsync_user_fails_when_paused(
+        aptos_framework: &signer,
+        admin: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        // Register user first
+        aptsend::register_user(admin, @0x456, b"telegram", u128_to_bytes(11111));
+        
+        // Pause the contract
+        aptsend::admin_set_paused(admin, true);
+        
+        // Try to unsync - should fail
+        aptsend::unsync_user(admin, @0x456, b"telegram", u128_to_bytes(11111));
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_unsync_then_resync_same_channel(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register with telegram
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        let primary_vault = aptsend::get_primary_vault_for_owner(user_addr);
+        
+        // Unsync telegram
+        aptsend::unsync_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Resync with same telegram ID
+        aptsend::sync_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Verify route is back and points to same primary vault
+        let telegram_vault        = aptsend::get_route_target_vault(b"telegram", u128_to_bytes(11111));
+        let telegram_vault_status = aptsend::get_route_status(b"telegram", u128_to_bytes(11111));
+        assert!(telegram_vault == primary_vault, 1);
+        assert!(telegram_vault_status == 1, 2); // ROUTE_STATUS_LINKED
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456, sender = @0x999)]
+    fun test_unsync_does_not_affect_vault_balance(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer,
+        sender: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        let sender_addr = signer::address_of(sender);
+        
+        // Register user and sender
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        aptsend::register_user(admin, sender_addr, b"telegram", u128_to_bytes(22222));
+        
+        // Fund user's vault
+        let coins = mint_apt(&mint_cap, 1000000);
+        coin::register<AptosCoin>(user);
+        coin::deposit(user_addr, coins);
+        aptsend::deposit_to_primary_vault(user, 500000);
+        
+        let primary_vault = aptsend::get_primary_vault_for_owner(user_addr);
+        let balance_before = aptsend::get_vault_apt_balance(primary_vault);
+        
+        // Unsync telegram
+        aptsend::unsync_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Verify vault balance unchanged
+        let balance_after = aptsend::get_vault_apt_balance(primary_vault);
+        assert!(balance_after == balance_before, 1);
+        assert!(balance_after == 500000, 2);
         
         coin::destroy_burn_cap(burn_cap);
         coin::destroy_mint_cap(mint_cap);

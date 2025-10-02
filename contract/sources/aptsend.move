@@ -61,6 +61,15 @@ module aptsend_addr::aptsend {
     }
 
     #[event]
+    struct UserUnsyncedEvent has drop, store {
+        owner: address,
+        primary_vault: address,
+        channel: vector<u8>,
+        channel_user_id: vector<u8>,
+        unsynced_at_seconds: u64,
+    }
+
+    #[event]
     struct RouteLinkedEvent has drop, store {
         channel: vector<u8>,           
         external_id: vector<u8>,
@@ -404,6 +413,71 @@ module aptsend_addr::aptsend {
         })
     }
 
+    public entry fun unsync_user(
+        service_signer: &signer,
+        user_address: address,
+        channel: vector<u8>,
+        channel_user_id: vector<u8>
+    ) acquires Config, VaultDirectory, SocialDirectory, UserProfileDirectory {
+        
+        assert_service_signer(signer::address_of(service_signer));
+        
+        let config = borrow_global<Config>(module_addr());
+        assert!(!config.paused, E_PAUSED);
+        
+        // Verify user is registered
+        let vault_directory = borrow_global<VaultDirectory>(module_addr());
+        assert!(
+            smart_table::contains(&vault_directory.owner_to_primary_vault, user_address),
+            E_NOT_REGISTERED
+        );
+        let user_primary_vault = *smart_table::borrow(&vault_directory.owner_to_primary_vault, user_address);
+        
+        // Check if route exists and belongs to this user
+        let social_directory = borrow_global_mut<SocialDirectory>(module_addr());
+        let social_key = SocialKey { channel, user_id: channel_user_id };
+        
+        if (smart_table::contains(&social_directory.social_routes, social_key)) {
+            let route = smart_table::borrow(&social_directory.social_routes, social_key);
+            
+            // Only allow unsyncing if route is linked to this user's primary vault
+            assert!(
+                route.status == ROUTE_STATUS_LINKED && route.target_vault == user_primary_vault,
+                E_UNAUTHORIZED
+            );
+            
+            // Remove the route
+            smart_table::remove(&mut social_directory.social_routes, social_key);
+        };
+        
+        // Update user profile - remove this channel_user_id
+        let profile_dir = borrow_global_mut<UserProfileDirectory>(module_addr());
+        if (smart_table::contains(&profile_dir.profiles, user_address)) {
+            let profile = smart_table::borrow_mut(&mut profile_dir.profiles, user_address);
+            
+            if (ordered_map::contains(&profile.channel_identities, &channel)) {
+                let user_ids = ordered_map::borrow_mut(&mut profile.channel_identities, &channel);
+                let (found, index) = vector::index_of(user_ids, &channel_user_id);
+                if (found) {
+                    vector::remove(user_ids, index);
+                    
+                    // If no more user_ids for this channel, remove the channel entry
+                    if (vector::is_empty(user_ids)) {
+                        ordered_map::remove(&mut profile.channel_identities, &channel);
+                    };
+                };
+            };
+        };
+        
+        event::emit(UserUnsyncedEvent {
+            owner: user_address,
+            primary_vault: user_primary_vault,
+            channel,
+            channel_user_id,
+            unsynced_at_seconds: timestamp::now_seconds(),
+        })
+    }
+
     // AptosCoin transfer - no generic type needed
     public entry fun process_transfer(
         service_signer: &signer,
@@ -645,6 +719,25 @@ module aptsend_addr::aptsend {
         let social_directory = borrow_global<SocialDirectory>(module_addr());
         let social_key = SocialKey { channel, user_id };
         *smart_table::borrow(&social_directory.social_routes, social_key)
+    }
+
+    #[view]
+    public fun get_route_target_vault(channel: vector<u8>, user_id: vector<u8>): address acquires SocialDirectory {
+        let route = get_social_route(channel, user_id);
+        route.target_vault
+    }
+
+    #[view]
+    public fun get_route_status(channel: vector<u8>, user_id: vector<u8>): u8 acquires SocialDirectory {
+        let route = get_social_route(channel, user_id);
+        route.status
+    }
+
+    #[view]
+    public fun route_exists(channel: vector<u8>, user_id: vector<u8>): bool acquires SocialDirectory {
+        let social_directory = borrow_global<SocialDirectory>(module_addr());
+        let social_key = SocialKey { channel, user_id };
+        smart_table::contains(&social_directory.social_routes, social_key)
     }
 
     #[view]
@@ -946,9 +1039,4 @@ module aptsend_addr::aptsend {
         profile.owner  
     }
 
-    #[test_only]
-    public fun get_route_target_vault(channel: vector<u8>, channel_user_id: vector<u8>): address acquires SocialDirectory {
-        let route = get_social_route(channel, channel_user_id);
-        route.target_vault  
-    }
 }
