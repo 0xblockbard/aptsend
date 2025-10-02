@@ -12,7 +12,7 @@ type Props = {
 export default function HeroSection({
   title = "AptSend",
   subtitle = "Send Aptos or tokens to anyone on Twitter, Telegram, Discord, Email, Phone Number, EVM or SOL addresses - even if they're not on Aptos yet",
-  badgeText = "Beta Deployed on Devnet",
+  badgeText = "Beta Deployed on Aptos Testnet",
   showBadge = true,
   children,
 }: Props) {

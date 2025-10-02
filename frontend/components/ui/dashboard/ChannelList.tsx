@@ -1,20 +1,5 @@
 import ChannelCard from "./ChannelCard";
-
-type ChannelType = "twitter" | "telegram" | "email" | "discord" | "evm";
-type ChannelStatus = "pending" | "linked" | "failed";
-
-type LinkedAccount = {
-  id: string;
-  identifier: string;
-  status: ChannelStatus;
-};
-
-type Channel = {
-  type: ChannelType;
-  label: string;
-  icon: string;
-  accounts: LinkedAccount[];
-};
+import { Channel, ChannelType } from "@/types/channelTypes";
 
 interface ChannelListProps {
   channels: Channel[];

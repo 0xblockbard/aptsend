@@ -1,23 +1,16 @@
 import { useState, useEffect } from "react";
 import VaultActionForm from "./VaultActionForm";
 import { useVaultBalanceCache } from "../../../contexts/VaultBalanceContext";
-
-type VaultInfo = {
-  address: string;
-  balances: {
-    apt: string;
-    usdc?: string;
-    usdt?: string;
-  };
-} | null;
-
-type VaultAction = "deposit" | "withdraw" | null;
+import { VaultInfoType, VaultActionType } from "@/types/vaultTypes";
+import { GRAPHQL_ENDPOINT } from "@/constants";
 
 interface VaultCardProps {
-  vault: VaultInfo;
-  vaultAction: VaultAction;
-  onSetVaultAction: (action: VaultAction) => void;
+  vault: VaultInfoType;
+  vaultAction: VaultActionType;
+  onSetVaultAction: (action: VaultActionType) => void;
   onConfirmAction: (currency: string, amount: string) => void;
+  isProcessing?: boolean;
+  refreshTrigger?: number; // Add this prop to trigger refreshes
 }
 
 interface FungibleAssetBalance {
@@ -29,9 +22,6 @@ interface FungibleAssetBalance {
     decimals: number;
   };
 }
-
-const GRAPHQL_ENDPOINT = "https://api.devnet.aptoslabs.com/v1/graphql";
-const GEOMI_API_KEY = process.env.NEXT_PUBLIC_GEOMI_API_KEY || "";
 
 async function fetchVaultBalances(address: string): Promise<{
   apt: string;
@@ -58,7 +48,6 @@ async function fetchVaultBalances(address: string): Promise<{
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(GEOMI_API_KEY && { "Authorization": `Bearer ${GEOMI_API_KEY}` }),
     },
     body: JSON.stringify({
       query,
@@ -85,7 +74,7 @@ async function fetchVaultBalances(address: string): Promise<{
     if (amount > 0) {
       const formatted = amount.toLocaleString("en-US", {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        maximumFractionDigits: 5,
       });
 
       if (symbol === "APT") {
@@ -105,16 +94,18 @@ export default function VaultCard({
   vault, 
   vaultAction, 
   onSetVaultAction, 
-  onConfirmAction 
+  onConfirmAction,
+  isProcessing = false,
+  refreshTrigger = 0
 }: VaultCardProps) {
   const { getBalances, setBalances, isCacheValid } = useVaultBalanceCache();
   const [balances, setLocalBalances] = useState<{ apt: string; usdc?: string; usdt?: string } | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Initial load when vault address changes
   useEffect(() => {
     if (vault?.address) {
-      // Check cache first
       if (isCacheValid(vault.address)) {
         const cached = getBalances(vault.address);
         if (cached) {
@@ -123,11 +114,18 @@ export default function VaultCard({
           return;
         }
       }
-      // If no valid cache, fetch new data
       console.log('🌐 No valid cache, fetching from API...');
       loadBalances();
     }
   }, [vault?.address]);
+
+  // Auto-refresh when refreshTrigger changes (after transactions)
+  useEffect(() => {
+    if (refreshTrigger > 0 && vault?.address) {
+      console.log('🔄 Auto-refreshing balances after transaction...');
+      loadBalances();
+    }
+  }, [refreshTrigger]);
 
   const loadBalances = async () => {
     if (!vault?.address) return;
@@ -140,7 +138,6 @@ export default function VaultCard({
       const fetchedBalances = await fetchVaultBalances(vault.address);
       console.log('📡 API call completed:', fetchedBalances);
       setLocalBalances(fetchedBalances);
-      // Update the shared cache
       setBalances(vault.address, fetchedBalances);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load balances");
@@ -167,8 +164,8 @@ export default function VaultCard({
                 </div>
                 <button
                   onClick={loadBalances}
-                  disabled={loading}
-                  className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                  disabled={loading || isProcessing}
+                  className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 transition-colors"
                   title="Refresh balances"
                 >
                   {loading ? "Refreshing..." : "↻ Refresh"}
@@ -210,13 +207,15 @@ export default function VaultCard({
             <div className="mt-4 flex gap-2 justify-end">
               <button
                 onClick={() => onSetVaultAction(vaultAction === "deposit" ? null : "deposit")}
-                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
+                disabled={isProcessing}
+                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Deposit
               </button>
               <button
                 onClick={() => onSetVaultAction(vaultAction === "withdraw" ? null : "withdraw")}
-                className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 transition-colors"
+                disabled={isProcessing}
+                className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Withdraw
               </button>
@@ -276,6 +275,7 @@ export default function VaultCard({
           action={vaultAction}
           onClose={() => onSetVaultAction(null)}
           onConfirm={onConfirmAction}
+          isProcessing={isProcessing}
         />
       )}
     </div>

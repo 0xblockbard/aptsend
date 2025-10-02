@@ -7,7 +7,7 @@ export function TopBanner() {
         <div className="flex items-center space-x-2">
           <AlertTriangle className="h-5 w-5 flex-shrink-0" />
           <span className="font-medium text-sm sm:text-base text-black">
-            Beta on Devnet
+            Beta on Aptos Testnet
           </span>
         </div>
         <div className="ml-4 flex-shrink-0"></div>

@@ -1,13 +1,7 @@
-type ChannelStatus = "pending" | "linked" | "failed";
-
-type LinkedAccount = {
-  id: string;
-  identifier: string;
-  status: ChannelStatus;
-};
+import { ChannelIdentity } from "@/types/channelTypes";
 
 interface LinkedAccountItemProps {
-  account: LinkedAccount;
+  account: ChannelIdentity;
   onUnsync: () => void;
 }
 

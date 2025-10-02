@@ -1,20 +1,5 @@
 import LinkedAccountItem from "./LinkedAccountItem";
-
-type ChannelType = "twitter" | "telegram" | "email" | "discord" | "evm";
-type ChannelStatus = "pending" | "linked" | "failed";
-
-type LinkedAccount = {
-  id: string;
-  identifier: string;
-  status: ChannelStatus;
-};
-
-type Channel = {
-  type: ChannelType;
-  label: string;
-  icon: string;
-  accounts: LinkedAccount[];
-};
+import { Channel } from "@/types/channelTypes";
 
 interface ChannelCardProps {
   channel: Channel;
@@ -40,7 +25,21 @@ export default function ChannelCard({
           className="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-70"
           onClick={() => hasAccounts && onToggleExpand()}
         >
-          <span className="text-2xl">{channel.icon}</span>
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 text-gray-700">
+            {channel.iconType === 'lucide' && typeof channel.iconSource !== 'string' && (
+              <channel.iconSource className="w-5 h-5" />
+            )}
+            {channel.iconType === 'svg' && typeof channel.iconSource === 'string' && (
+              <div dangerouslySetInnerHTML={{ __html: channel.iconSource }} className="w-5 h-5" />
+            )}
+            {channel.iconType === 'image' && typeof channel.iconSource === 'string' && (
+              <img src={channel.iconSource} alt={channel.label} className="w-5 h-5" />
+            )}
+            {channel.iconType === 'emoji' && typeof channel.iconSource === 'string' && (
+              <span className="text-xl">{channel.iconSource}</span>
+            )}
+          </div>
+
           <div className="flex-1">
             <div className="font-medium">{channel.label}</div>
             <div className="text-sm text-gray-500">

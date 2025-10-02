@@ -1,5 +1,3 @@
-// frontend/types/channelTypes.ts
-
 import { AccountAddress } from "@aptos-labs/ts-sdk";
 
 // ============================================================================
@@ -113,4 +111,12 @@ export interface UseChannelsReturn {
   syncChannel: (channelType: ChannelType) => Promise<SyncResult>;
   unsyncChannel: (channelType: ChannelType, accountId: string) => Promise<void>;
   reload: () => Promise<void>;
+}
+
+export interface Channel {
+  type: ChannelType;
+  label: string;
+  iconType: "lucide" | "svg" | "image" | "emoji";
+  iconSource: string | React.ComponentType<{ className?: string }>;
+  accounts: ChannelIdentity[];
 }

@@ -4,12 +4,14 @@ interface VaultActionFormProps {
   action: "deposit" | "withdraw";
   onClose: () => void;
   onConfirm: (currency: string, amount: string) => void;
+  isProcessing?: boolean;
 }
 
 export default function VaultActionForm({ 
   action, 
   onClose, 
-  onConfirm 
+  onConfirm,
+  isProcessing = false
 }: VaultActionFormProps) {
   const [selectedCurrency, setSelectedCurrency] = useState("apt");
   const [amount, setAmount] = useState("");
@@ -31,7 +33,8 @@ export default function VaultActionForm({
           <h4 className="font-bold capitalize">{action}</h4>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            disabled={isProcessing}
+            className="text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -47,7 +50,8 @@ export default function VaultActionForm({
             <select
               value={selectedCurrency}
               onChange={(e) => setSelectedCurrency(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isProcessing}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="apt">APT</option>
               <option value="usdc">USDC</option>
@@ -63,17 +67,20 @@ export default function VaultActionForm({
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              disabled={isProcessing}
               placeholder="0.00"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              step="0.01"
+              min="0"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
           <button
             onClick={handleConfirm}
-            disabled={!amount || parseFloat(amount) <= 0}
+            disabled={!amount || parseFloat(amount) <= 0 || isProcessing}
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            Confirm {action}
+            {isProcessing ? "Processing..." : `Confirm ${action}`}
           </button>
         </div>
       </div>
