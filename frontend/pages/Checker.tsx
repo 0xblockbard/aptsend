@@ -1,38 +1,257 @@
 import { useState } from "react";
+import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
+import { ChannelType } from "@/types/channelTypes";
+import { API_BASE_URL, MODULE_ADDRESS, NETWORK } from "@/constants";
 
-type ChannelType = "twitter" | "telegram" | "email" | "discord";
+interface CheckResult {
+  eligible: boolean;
+  vault_address?: string;
+  balances: {
+    apt?: string;
+    usdc?: string;
+    usdt?: string;
+  };
+  status: 'temp' | 'linked' | 'not_found';
+  message: string;
+}
+
+const aptosConfig = new AptosConfig({ network: NETWORK as Network });
+const aptos = new Aptos(aptosConfig);
 
 export default function Checker() {
+
+  const { account } = useWallet();
   const [channel, setChannel] = useState<ChannelType>("twitter");
   const [identifier, setIdentifier] = useState("");
-  const [result, setResult] = useState<null | {
-    eligible: boolean;
-    amount: number;
-    symbol: string;
-  }>(null);
+  const [searchedIdentifier, setSearchedIdentifier] = useState(""); // Add this
+  const [searchedChannel, setSearchedChannel] = useState<ChannelType>("twitter"); // Add this
+  const [result, setResult] = useState<CheckResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setResult(null);
 
-    // Placeholder logic: deterministic “mock” amount from identifier
-    const clean = identifier.trim().toLowerCase();
-    const eligible = clean.length >= 3;
-    const hash = [...clean].reduce((a, c) => a + c.charCodeAt(0), 0);
-    const amount = eligible ? (hash % 1000) / 10 : 0;
-    setResult({ eligible, amount, symbol: "POINT" });
+    // Store what we're searching for
+    setSearchedIdentifier(identifier.trim());
+    setSearchedChannel(channel);
+
+    try {
+      // Step 1: Get channel_user_id from backend
+      const params = new URLSearchParams({
+        channel,
+        identifier: identifier.trim()
+      });
+
+      console.log('Sending to backend:', { channel, identifier: identifier.trim() });
+      console.log('Full URL:', `${API_BASE_URL}/checker/get-identity?${params}`);
+
+      const backendResponse = await fetch(
+        `${API_BASE_URL}/checker/get-identity?${params}`,
+        {
+          method: 'GET',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      const backendData = await backendResponse.json();
+
+      if (!backendResponse.ok || !backendData.success) {
+        throw new Error(backendData.message || 'Failed to resolve identifier');
+      }
+
+      const channelUserId = backendData.channel_user_id;
+
+      // Step 2: Check if route exists on blockchain
+      const routeExists = await checkRouteExists(channel, channelUserId);
+      
+      if (!routeExists) {
+        setResult({
+          eligible: false,
+          balances: {},
+          status: 'not_found',
+          message: 'No vault found for this identifier'
+        });
+        return;
+      }
+
+      // Step 3: Get route details
+      const route = await getSocialRoute(channel, channelUserId);
+      const routeStatus = route.status;
+      const vaultAddress = route.target_vault;
+
+      // Step 4: Check if it's a temp vault (status = 0)
+      if (routeStatus !== 0) {
+        setResult({
+          eligible: false,
+          vault_address: vaultAddress,
+          balances: {},
+          status: 'linked',
+          message: 'This account is already linked to a wallet'
+        });
+        return;
+      }
+
+      // Step 5: Get balances
+      const balances = await getVaultBalances(vaultAddress);
+      const hasBalance = Object.values(balances).some(b => parseFloat(b as string) > 0);
+
+      setResult({
+        eligible: hasBalance,
+        vault_address: vaultAddress,
+        balances,
+        status: 'temp',
+        message: hasBalance 
+          ? 'Funds available to claim' 
+          : 'No funds in this vault'
+      });
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
   }
+
+  async function checkRouteExists(channel: string, userId: string): Promise<boolean> {
+    try {
+      const result = await aptos.view({
+        payload: {
+          function: `${MODULE_ADDRESS}::aptsend::route_exists`,
+          typeArguments: [],
+          functionArguments: [
+            Array.from(Buffer.from(channel)),      // Convert string to bytes
+            Array.from(Buffer.from(userId))        // Convert string to bytes
+          ]
+        }
+      });
+      return result[0] as boolean;
+    } catch (error) {
+      console.error('Error checking route:', error);
+      return false;
+    }
+  }
+
+  async function getSocialRoute(channel: string, userId: string) {
+    const result = await aptos.view({
+      payload: {
+        function: `${MODULE_ADDRESS}::aptsend::get_social_route`,
+        typeArguments: [],
+        functionArguments: [
+          Array.from(Buffer.from(channel)),
+          Array.from(Buffer.from(userId))
+        ]
+      }
+    });
+    
+    const route = result[0] as any;
+    return {
+      target_vault: route.target_vault,
+      status: parseInt(route.status),
+      channel: route.channel,
+      created_at_seconds: parseInt(route.created_at_seconds)
+    };
+  }
+
+  async function getVaultBalances(vaultAddress: string) {
+    const balances: any = {};
+
+    // Get APT balance
+    const aptBalance = await getVaultAptBalance(vaultAddress);
+    if (aptBalance > 0) {
+      balances.apt = (aptBalance / 100000000).toFixed(5);
+    }
+
+    // TODO: Add FA balances when you have the metadata addresses
+    // const usdcMetadata = "YOUR_USDC_METADATA_ADDRESS";
+    // const usdcBalance = await getVaultFaBalance(vaultAddress, usdcMetadata);
+    // if (usdcBalance > 0) {
+    //   balances.usdc = (usdcBalance / 1000000).toFixed(5);
+    // }
+
+    return balances;
+  }
+
+  async function getVaultAptBalance(vaultAddress: string): Promise<number> {
+    try {
+      const result = await aptos.view({
+        payload: {
+          function: `${MODULE_ADDRESS}::aptsend::get_vault_apt_balance`,
+          typeArguments: [],
+          functionArguments: [vaultAddress]
+        }
+      });
+      return parseInt(result[0] as string);
+    } catch (error) {
+      console.error('Error getting APT balance:', error);
+      return 0;
+    }
+  }
+
+  async function getVaultFaBalance(vaultAddress: string, faMetadata: string): Promise<number> {
+    try {
+      const result = await aptos.view({
+        payload: {
+          function: `${MODULE_ADDRESS}::aptsend::get_vault_fa_balance`,
+          typeArguments: [],
+          functionArguments: [vaultAddress, faMetadata]
+        }
+      });
+      return parseInt(result[0] as string);
+    } catch (error) {
+      console.error('Error getting FA balance:', error);
+      return 0;
+    }
+  }
+
+  function stringToHex(str: string): string {
+    const bytes = new TextEncoder().encode(str);
+    return '0x' + Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  async function handleClaim() {
+    if (!result?.vault_address || !account) return;
+    
+    // TODO: Implement claim logic - this would call register_user or sync_user
+    // depending on whether the user is already registered
+    console.log('Claiming from vault:', result.vault_address);
+  }
+
+  const getPlaceholder = () => {
+    switch (channel) {
+      case 'twitter': return 'e.g. blockbard (no @)';
+      case 'telegram': return 'e.g. @username or user ID';
+      case 'email': return 'e.g. user@example.com';
+      case 'discord': return 'e.g. username#1234 or user ID';
+    }
+  };
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-10">
       <h1 className="text-2xl font-semibold">Claim Checker</h1>
-      <p className="text-sm italic pt-1">Check if you can claim any Aptos or tokens for your social account</p>
+      <p className="text-sm text-gray-600 pt-1">
+        Check if you have unclaimed Aptos or tokens for your social account
+      </p>
+
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm text-gray-600">Channel</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Channel
+          </label>
           <select
             value={channel}
             onChange={(e) => setChannel(e.target.value as ChannelType)}
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
           >
             <option value="twitter">Twitter / X</option>
             <option value="telegram">Telegram</option>
@@ -42,42 +261,117 @@ export default function Checker() {
         </div>
 
         <div>
-          <label className="block text-sm text-gray-600">Identifier</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Identifier
+          </label>
           <input
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="e.g. blockbard (no @)"
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            placeholder={getPlaceholder()}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+            required
           />
         </div>
 
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+            {error}
+          </div>
+        )}
+
         <button
           type="submit"
-          className="rounded-md bg-black px-4 py-2 text-white"
+          disabled={loading || !identifier.trim()}
+          className="w-full rounded-md bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
-          Check
+          {loading ? 'Checking...' : 'Check Claim Status'}
         </button>
       </form>
 
       {result && (
-        <div className="mt-6 rounded-lg border p-5">
-          <div className="text-sm text-gray-500">
-            {channel} · {identifier || "—"}
-          </div>
-          <div className="mt-1">
-            {result.eligible ? (
-              <div className="text-lg">
-                Eligible — <span className="font-semibold">
-                  {result.amount.toFixed(1)} {result.symbol}
-                </span>
+        <div className="mt-6 rounded-lg border border-gray-200 bg-white shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="text-sm font-medium text-gray-500">
+                {searchedChannel.charAt(0).toUpperCase() + searchedChannel.slice(1)}
               </div>
-            ) : (
-              <div className="text-lg">Not eligible</div>
+              <div className="text-base font-semibold">{searchedIdentifier}</div>
+            </div>
+            {result.status === 'temp' && (
+              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                Unclaimed
+              </span>
             )}
           </div>
-          <div className="mt-2 text-xs text-gray-500">
-            Demo only. This will call the backend later.
-          </div>
+
+          {result.eligible ? (
+            <>
+              <div className="border-t pt-4 mb-4">
+                <div className="text-sm font-medium text-gray-700 mb-3">
+                  Available Balances
+                </div>
+                <div className="space-y-2">
+                  {result.balances.apt && parseFloat(result.balances.apt) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">APT</span>
+                      <span className="font-mono font-semibold">{result.balances.apt}</span>
+                    </div>
+                  )}
+                  {result.balances.usdc && parseFloat(result.balances.usdc) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">USDC</span>
+                      <span className="font-mono font-semibold">{result.balances.usdc}</span>
+                    </div>
+                  )}
+                  {result.balances.usdt && parseFloat(result.balances.usdt) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">USDT</span>
+                      <span className="font-mono font-semibold">{result.balances.usdt}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {result.vault_address && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                  <div className="text-xs text-gray-500 mb-1">Vault Address</div>
+                  <div className="text-xs font-mono break-all">{result.vault_address}</div>
+                </div>
+              )}
+
+              {account ? (
+                <button
+                  onClick={handleClaim}
+                  className="w-full rounded-md bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700 transition-colors"
+                >
+                  Claim to My Wallet
+                </button>
+              ) : (
+                <div className="text-center p-3 bg-gray-50 rounded-md text-sm text-gray-600">
+                  Connect your wallet to claim these funds
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-4">
+              {result.status === 'linked' ? (
+                <div className="text-center py-6">
+                  <div className="text-sm font-medium text-gray-700 mb-3">
+                    This account is already linked to a wallet
+                  </div>
+                  <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-300 shadow-sm">
+                    We don't show balances for registered accounts to protect user privacy.
+                    <br />
+                    <span className="font-medium">Connect your wallet</span> on the dashboard to view and access your funds.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-600">
+                  {result.message}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,7 +1,6 @@
 import { AccountAddress } from "@aptos-labs/ts-sdk";
 import { AllIdentitiesResponse } from "../types/channelTypes";
-
-const API_BASE_URL = 'https://aptsend-backend.test/api';
+import { API_BASE_URL } from "@/constants";
 
 /**
  * Fetches all channel identities for a given owner address
