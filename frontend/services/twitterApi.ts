@@ -1,33 +1,16 @@
+// frontend/services/twitterApi.ts
+
 import { AccountAddress } from "@aptos-labs/ts-sdk";
+import { 
+  TwitterAuthUrlResponse, 
+  TwitterCallbackResponse 
+} from "../types/channelTypes";
 
 const API_BASE_URL = 'https://aptsend-backend.test/api';
 
-export interface TwitterAuthUrlResponse {
-  auth_url: string;
-  state: string;
-}
-
-export interface TwitterCallbackResponse {
-  success: boolean;
-  identity: {
-    id: number;
-    channel: string;
-    channel_user_id: string;
-    vault_status: number;
-    metadata: {
-      username: string;
-      name: string;
-      profile_image_url?: string;
-    };
-  };
-}
-
-export interface TwitterAccount {
-  id: number;
-  identifier: string;
-  status: 'linked' | 'pending';
-}
-
+/**
+ * Gets the Twitter OAuth authorization URL
+ */
 export async function getTwitterAuthUrl(
   ownerAddress: AccountAddress,
   codeChallenge: string,
@@ -55,25 +38,9 @@ export async function getTwitterAuthUrl(
   return response.json();
 }
 
-export async function getTwitterAccounts(
-  ownerAddress: AccountAddress
-): Promise<TwitterAccount[]> {
-  const response = await fetch(
-    `${API_BASE_URL}/channels/twitter/accounts?owner_address=${ownerAddress.toString()}`,
-    { 
-      method: 'GET', 
-      headers: { 'Content-Type': 'application/json' } 
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch accounts');
-  }
-
-  const data = await response.json();
-  return data.accounts;
-}
-
+/**
+ * Handles the Twitter OAuth callback
+ */
 export async function handleTwitterCallback(
   code: string,
   state: string,
@@ -91,4 +58,29 @@ export async function handleTwitterCallback(
   }
 
   return response.json();
+}
+
+/**
+ * Unsync a Twitter account
+ */
+export async function unsyncTwitterAccount(
+  ownerAddress: AccountAddress,
+  accountId: string
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/channels/twitter/unsync`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        owner_address: ownerAddress.toString(),
+        account_id: accountId,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to unsync Twitter account');
+  }
 }

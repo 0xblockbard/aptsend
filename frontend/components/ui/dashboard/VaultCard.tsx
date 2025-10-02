@@ -154,9 +154,9 @@ export default function VaultCard({
     <div>
       <h3 className="mb-4 text-lg font-semibold">Primary Vault</h3>
       <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="text-sm font-medium text-gray-500">Vault Address</div>
         {vault ? (
           <>
+            <div className="text-sm font-medium text-gray-500">Vault Address</div>
             <div className="mt-2 font-mono text-sm text-gray-900 break-all">
               {vault.address}
             </div>
@@ -223,9 +223,51 @@ export default function VaultCard({
             </div>
           </>
         ) : (
-          <div className="mt-2 text-sm text-gray-600">
-            Connect with one channel first and your primary vault will be generated automatically.
-          </div>
+          <>
+            <div className="text-center py-6">
+              <div className="text-sm font-medium text-gray-600 mb-1">
+                Sync a channel to generate a primary vault
+              </div>
+              <div className="text-xs text-gray-500 italic">
+                Connect any channel on the right to get started
+              </div>
+            </div>
+            
+            <div className="mt-4 border-t pt-4">
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+                Balances
+              </div>
+              <div className="space-y-2 opacity-50">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">APT</span>
+                  <span className="font-mono text-sm font-semibold text-gray-400">0.00</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">USDC</span>
+                  <span className="font-mono text-sm font-semibold text-gray-400">0.00</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">USDT</span>
+                  <span className="font-mono text-sm font-semibold text-gray-400">0.00</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex gap-2 justify-end">
+              <button
+                disabled
+                className="rounded-md bg-gray-300 px-4 py-2 text-sm font-medium text-gray-500 cursor-not-allowed"
+              >
+                Deposit
+              </button>
+              <button
+                disabled
+                className="rounded-md bg-gray-300 px-4 py-2 text-sm font-medium text-gray-500 cursor-not-allowed"
+              >
+                Withdraw
+              </button>
+            </div>
+          </>
         )}
       </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import VaultCard from "../components/ui/dashboard/VaultCard";
 import ChannelList from "../components/ui/dashboard/ChannelList";
@@ -12,19 +12,27 @@ type VaultInfo = {
 } | null;
 type VaultAction = "deposit" | "withdraw" | null;
 
-const MOCK_VAULT: VaultInfo = {
-  address: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-  balances: { apt: "125.45", usdc: "1,250.00", usdt: "500.00" }
-};
-
 export default function Dashboard() {
   const { account } = useWallet();
   const { toast } = useToast();
-  const { identities, isLoading, syncChannel, unlinkAccount } = useChannels(account?.address);
+  const { identities, primaryVaultAddress, isLoading, syncChannel, unsyncChannel } = useChannels(account?.address);
   
   const [expandedChannel, setExpandedChannel] = useState<ChannelType | null>(null);
-  const [vault] = useState<VaultInfo>(MOCK_VAULT);
+  const [vault, setVault] = useState<VaultInfo>(null);
   const [vaultAction, setVaultAction] = useState<VaultAction>(null);
+
+  // Update vault when primaryVaultAddress changes
+  useEffect(() => {
+    if (primaryVaultAddress) {
+      // TODO: Fetch actual balances from blockchain using primaryVaultAddress
+      setVault({
+        address: primaryVaultAddress,
+        balances: { apt: "0.00" } // Placeholder until you implement balance fetching
+      });
+    } else {
+      setVault(null);
+    }
+  }, [primaryVaultAddress]);
 
   const channels = [
     {
@@ -76,10 +84,10 @@ export default function Dashboard() {
     }
   };
 
-  const handleUnlink = async (channelType: ChannelType, accountId: string) => {
-    await unlinkAccount(channelType, accountId);
+  const handleUnsync = async (channelType: ChannelType, accountId: string) => {
+    await unsyncChannel(channelType, accountId);
     toast({ 
-      title: "Account Unlinked",
+      title: "Account Unsynced",
       description: `${channelType} account has been removed.`,
     });
   };
@@ -111,7 +119,7 @@ export default function Dashboard() {
             expandedChannel={expandedChannel}
             onToggleExpand={(type) => setExpandedChannel(prev => prev === type ? null : type)}
             onSync={handleSync}
-            onUnlink={handleUnlink}
+            onUnsync={handleUnsync}
           />
         </div>
       </div>

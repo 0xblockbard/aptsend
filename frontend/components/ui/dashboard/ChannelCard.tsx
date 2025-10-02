@@ -21,7 +21,7 @@ interface ChannelCardProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   onSync: () => void;
-  onUnlink: (accountId: string) => void;
+  onUnsync: (accountId: string) => void;
 }
 
 export default function ChannelCard({ 
@@ -29,7 +29,7 @@ export default function ChannelCard({
   isExpanded, 
   onToggleExpand, 
   onSync, 
-  onUnlink 
+  onUnsync 
 }: ChannelCardProps) {
   const hasAccounts = channel.accounts.length > 0;
   
@@ -79,7 +79,7 @@ export default function ChannelCard({
                 <LinkedAccountItem
                   key={account.id}
                   account={account}
-                  onUnlink={() => onUnlink(account.id)}
+                  onUnsync={() => onUnsync(account.id)}
                 />
               ))}
             </div>

@@ -3,32 +3,38 @@ import { AccountAddress } from '@aptos-labs/ts-sdk';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 import { 
   getTwitterAuthUrl, 
-  handleTwitterCallback, 
-  getTwitterAccounts,
-  type TwitterAccount
+  handleTwitterCallback,
+  unsyncTwitterAccount
 } from '../services/twitterApi';
+import { 
+  TwitterIdentity, 
+  SyncResult 
+} from '../types/channelTypes';
 
-export function useTwitterChannel(ownerAddress: AccountAddress | undefined) {
-  const [accounts, setAccounts] = useState<TwitterAccount[]>([]);
+interface UseTwitterChannelProps {
+  ownerAddress: AccountAddress | undefined;
+  twitterIdentities: TwitterIdentity[];
+  onIdentitiesChange: () => Promise<void>;
+}
+
+interface UseTwitterChannelReturn {
+  accounts: TwitterIdentity[];
+  isLoading: boolean;
+  sync: () => Promise<SyncResult>;
+  unsync: (accountId: string) => Promise<void>;
+}
+
+/**
+ * Hook for managing Twitter channel integration
+ * Note: This hook receives identities from the parent useChannels hook
+ * to maintain a single source of truth. It does NOT fetch accounts independently.
+ */
+export function useTwitterChannel({
+  ownerAddress,
+  twitterIdentities,
+  onIdentitiesChange
+}: UseTwitterChannelProps): UseTwitterChannelReturn {
   const [isLoading, setIsLoading] = useState(false);
-
-  const loadAccounts = useCallback(async () => {
-    if (!ownerAddress) return;
-
-    try {
-      setIsLoading(true);
-      const fetchedAccounts = await getTwitterAccounts(ownerAddress);
-      setAccounts(fetchedAccounts);
-    } catch (error) {
-      console.error('Failed to load Twitter accounts:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [ownerAddress]);
-
-  useEffect(() => {
-    loadAccounts();
-  }, [loadAccounts]);
 
   const completeAuth = useCallback(async (code: string, state: string) => {
     console.log('=== COMPLETE AUTH CALLED ===');
@@ -46,15 +52,15 @@ export function useTwitterChannel(ownerAddress: AccountAddress | undefined) {
     try {
       console.log('Calling handleTwitterCallback...');
       await handleTwitterCallback(code, state, codeVerifier);
-      console.log('Callback successful, reloading accounts...');
-      await loadAccounts();
+      console.log('Callback successful, reloading identities...');
+      await onIdentitiesChange();
     } catch (error) {
       console.error('Twitter callback error:', error);
       throw error;
     } finally {
       sessionStorage.removeItem('twitter_code_verifier');
     }
-  }, [loadAccounts]);
+  }, [onIdentitiesChange]);
 
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
@@ -85,7 +91,7 @@ export function useTwitterChannel(ownerAddress: AccountAddress | undefined) {
     };
   }, [completeAuth]);
 
-  const sync = async (): Promise<{ success: boolean; error?: string }> => {
+  const sync = async (): Promise<SyncResult> => {
     console.log('=== SYNC STARTED ===');
     
     if (!ownerAddress) {
@@ -94,6 +100,8 @@ export function useTwitterChannel(ownerAddress: AccountAddress | undefined) {
     }
 
     try {
+      setIsLoading(true);
+      
       console.log('1. Generating PKCE codes...');
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = await generateCodeChallenge(codeVerifier);
@@ -122,6 +130,7 @@ export function useTwitterChannel(ownerAddress: AccountAddress | undefined) {
 
       if (!popup) {
         console.error('Popup blocked by browser');
+        setIsLoading(false);
         return { success: false, error: 'Popup blocked' };
       }
 
@@ -132,6 +141,7 @@ export function useTwitterChannel(ownerAddress: AccountAddress | undefined) {
         if (popup.closed) {
           clearInterval(pollTimer);
           console.log('Popup closed');
+          setIsLoading(false);
         }
       }, 500);
 
@@ -139,6 +149,7 @@ export function useTwitterChannel(ownerAddress: AccountAddress | undefined) {
     } catch (error) {
       console.error('=== SYNC FAILED ===');
       console.error('Error details:', error);
+      setIsLoading(false);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to sync' 
@@ -146,16 +157,27 @@ export function useTwitterChannel(ownerAddress: AccountAddress | undefined) {
     }
   };
 
-  const unlink = async (accountId: string) => {
-    // TODO: Call backend to unlink
-    setAccounts(prev => prev.filter(acc => acc.id.toString() !== accountId));
+  const unsync = async (accountId: string): Promise<void> => {
+    if (!ownerAddress) {
+      throw new Error('Wallet not connected');
+    }
+
+    try {
+      setIsLoading(true);
+      await unsyncTwitterAccount(ownerAddress, accountId);
+      await onIdentitiesChange();
+    } catch (error) {
+      console.error('Failed to unsync Twitter account:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return {
-    accounts,
+    accounts: twitterIdentities,
     isLoading,
     sync,
-    unlink,
-    reload: loadAccounts,
+    unsync,
   };
 }

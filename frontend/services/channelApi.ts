@@ -1,23 +1,14 @@
 import { AccountAddress } from "@aptos-labs/ts-sdk";
+import { AllIdentitiesResponse } from "../types/channelTypes";
 
 const API_BASE_URL = 'https://aptsend-backend.test/api';
 
-export type ChannelType = "twitter" | "telegram" | "email" | "discord" | "evm";
-export type ChannelStatus = "pending" | "linked" | "failed";
-
-export interface ChannelIdentity {
-  id: string;
-  identifier: string;
-  status: ChannelStatus;
-}
-
-export interface AllIdentities {
-  [key: string]: ChannelIdentity[];
-}
-
+/**
+ * Fetches all channel identities for a given owner address
+ */
 export async function getAllIdentities(
   ownerAddress: AccountAddress
-): Promise<AllIdentities> {
+): Promise<AllIdentitiesResponse> {
   const response = await fetch(
     `${API_BASE_URL}/channels/identities?owner_address=${ownerAddress.toString()}`,
     { 
@@ -31,5 +22,5 @@ export async function getAllIdentities(
   }
 
   const data = await response.json();
-  return data.identities;
+  return data;
 }

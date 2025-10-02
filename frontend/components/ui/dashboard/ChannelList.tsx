@@ -21,7 +21,7 @@ interface ChannelListProps {
   expandedChannel: ChannelType | null;
   onToggleExpand: (channelType: ChannelType) => void;
   onSync: (channelType: ChannelType) => void;
-  onUnlink: (channelType: ChannelType, accountId: string) => void;
+  onUnsync: (channelType: ChannelType, accountId: string) => void;
 }
 
 export default function ChannelList({ 
@@ -29,7 +29,7 @@ export default function ChannelList({
   expandedChannel, 
   onToggleExpand, 
   onSync, 
-  onUnlink 
+  onUnsync 
 }: ChannelListProps) {
   return (
     <div>
@@ -43,7 +43,7 @@ export default function ChannelList({
             isExpanded={expandedChannel === channel.type}
             onToggleExpand={() => onToggleExpand(channel.type)}
             onSync={() => onSync(channel.type)}
-            onUnlink={(accountId) => onUnlink(channel.type, accountId)}
+            onUnsync={(accountId) => onUnsync(channel.type, accountId)}
           />
         ))}
       </div>

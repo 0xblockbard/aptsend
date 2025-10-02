@@ -1,27 +1,48 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AccountAddress } from '@aptos-labs/ts-sdk';
-import { getAllIdentities, type ChannelIdentity } from '../services/channelApi';
+import { getAllIdentities } from '../services/channelApi';
 import { useTwitterChannel } from './useTwitterChannel';
-// Import other channel hooks as you build them
+import { 
+  ChannelIdentity, 
+  ChannelType,
+  TwitterIdentity,
+  SyncResult
+} from '../types/channelTypes';
 
-export type ChannelType = "twitter" | "telegram" | "email" | "discord" | "evm";
+export interface UseChannelsReturn {
+  identities: Record<string, ChannelIdentity[]>;
+  primaryVaultAddress: string | null;
+  isLoading: boolean;
+  syncChannel: (channelType: ChannelType) => Promise<SyncResult>;
+  unsyncChannel: (channelType: ChannelType, accountId: string) => Promise<void>;
+  reload: () => Promise<void>;
+}
 
-export function useChannels(ownerAddress: AccountAddress | undefined) {
+/**
+ * Main hook for managing all channel identities
+ * This is the single source of truth for all channel data
+ */
+export function useChannels(ownerAddress: AccountAddress | undefined): UseChannelsReturn {
   const [identities, setIdentities] = useState<Record<string, ChannelIdentity[]>>({});
+  const [primaryVaultAddress, setPrimaryVaultAddress] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Individual channel hooks
-  const twitter = useTwitterChannel(ownerAddress);
-
   const loadAllIdentities = useCallback(async () => {
-    if (!ownerAddress) return;
+    if (!ownerAddress) {
+      setIdentities({});
+      setPrimaryVaultAddress(null);
+      return;
+    }
 
     try {
       setIsLoading(true);
-      const allIdentities = await getAllIdentities(ownerAddress);
-      setIdentities(allIdentities);
+      const response = await getAllIdentities(ownerAddress);
+      setIdentities(response.identities);
+      setPrimaryVaultAddress(response.primary_vault_address);
     } catch (error) {
       console.error('Failed to load identities:', error);
+      setIdentities({});
+      setPrimaryVaultAddress(null);
     } finally {
       setIsLoading(false);
     }
@@ -31,35 +52,66 @@ export function useChannels(ownerAddress: AccountAddress | undefined) {
     loadAllIdentities();
   }, [loadAllIdentities]);
 
-  const syncChannel = async (channelType: ChannelType) => {
+  // Extract Twitter identities from the main identities object
+  const twitterIdentities = useMemo(() => {
+    return (identities.twitter || []) as TwitterIdentity[];
+  }, [identities]);
+
+  // Initialize Twitter channel hook with identities from main state
+  const twitter = useTwitterChannel({
+    ownerAddress,
+    twitterIdentities,
+    onIdentitiesChange: loadAllIdentities
+  });
+
+  const syncChannel = async (channelType: ChannelType): Promise<SyncResult> => {
     switch (channelType) {
       case 'twitter':
         const result = await twitter.sync();
         if (result.success) {
+          // Twitter hook will call onIdentitiesChange after OAuth completes
+          // But we can also reload here for immediate feedback
           await loadAllIdentities();
         }
         return result;
-      // Add other channels here
+      
+      case 'telegram':
+      case 'email':
+      case 'discord':
+      case 'evm':
+        // TODO: Implement other channels
+        return { success: false, error: `${channelType} not implemented yet` };
+      
       default:
-        return { success: false, error: 'Channel not implemented' };
+        return { success: false, error: 'Unknown channel type' };
     }
   };
 
-  const unlinkAccount = async (channelType: ChannelType, accountId: string) => {
+  const unsyncChannel = async (channelType: ChannelType, accountId: string): Promise<void> => {
     switch (channelType) {
       case 'twitter':
-        await twitter.unlink(accountId);
-        await loadAllIdentities();
+        await twitter.unsync(accountId);
+        // Note: twitter.unsync() already calls onIdentitiesChange (loadAllIdentities) internally
         break;
-      // Add other channels here
+      
+      case 'telegram':
+      case 'email':
+      case 'discord':
+      case 'evm':
+        // TODO: Implement other channels
+        throw new Error(`${channelType} unsync not implemented yet`);
+      
+      default:
+        throw new Error('Unknown channel type');
     }
   };
 
   return {
     identities,
-    isLoading,
+    primaryVaultAddress,
+    isLoading: isLoading || twitter.isLoading,
     syncChannel,
-    unlinkAccount,
+    unsyncChannel,
     reload: loadAllIdentities,
   };
 }

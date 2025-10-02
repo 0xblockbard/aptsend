@@ -71,7 +71,7 @@ export default function SupportedChannels() {
                 <h3 className="font-semibold text-gray-900">{c.name}</h3>
                 <p className="mt-2 text-gray-700">{c.description}</p>
                 <span className="mt-3 inline-block text-sm text-indigo-600 opacity-0 transition group-hover:opacity-100">
-                  Check eligibility →
+                  Check claims →
                 </span>
               </div>
             </Link>

@@ -24,8 +24,8 @@ export default function Checker() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-10">
-      <h1 className="text-2xl font-semibold">Eligibility Checker</h1>
-      <p className="text-sm italic pt-1">Check if you can claim any Aptos or tokens.</p>
+      <h1 className="text-2xl font-semibold">Claim Checker</h1>
+      <p className="text-sm italic pt-1">Check if you can claim any Aptos or tokens for your social account</p>
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
           <label className="block text-sm text-gray-600">Channel</label>

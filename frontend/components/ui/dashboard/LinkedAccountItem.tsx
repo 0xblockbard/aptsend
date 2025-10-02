@@ -8,10 +8,10 @@ type LinkedAccount = {
 
 interface LinkedAccountItemProps {
   account: LinkedAccount;
-  onUnlink: () => void;
+  onUnsync: () => void;
 }
 
-export default function LinkedAccountItem({ account, onUnlink }: LinkedAccountItemProps) {
+export default function LinkedAccountItem({ account, onUnsync }: LinkedAccountItemProps) {
   return (
     <div className="flex items-center justify-between rounded-md bg-white px-4 py-3 shadow-sm">
       <div className="flex items-center gap-3">
@@ -28,12 +28,12 @@ export default function LinkedAccountItem({ account, onUnlink }: LinkedAccountIt
           {account.identifier}
         </span>
       </div>
-      <button
-        onClick={onUnlink}
+      {/* <button
+        onClick={onUnsync}
         className="rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
       >
-        Unlink
-      </button>
+        Unsync
+      </button> */}
     </div>
   );
 }
