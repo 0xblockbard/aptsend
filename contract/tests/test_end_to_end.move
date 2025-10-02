@@ -1986,4 +1986,504 @@ module aptsend_addr::aptsend_tests {
         coin::destroy_burn_cap(burn_cap);
         coin::destroy_mint_cap(mint_cap);
     }
+
+    // ======================== Public Send Tests ========================
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_send_from_primary_vault_to_unregistered_user(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register user
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Fund user's primary vault
+        let coins = mint_apt(&mint_cap, 1000000);
+        coin::register<AptosCoin>(user);
+        coin::deposit(user_addr, coins);
+        aptsend::deposit_to_primary_vault(user, 500000);
+        
+        // Get initial balances
+        let sender_vault = aptsend::get_primary_vault_for_owner(user_addr);
+        let balance_before = aptsend::get_vault_apt_balance(sender_vault);
+        let (_, fee_receiver_addr) = aptsend::get_fee_config();
+        let fee_balance_before = coin::balance<AptosCoin>(fee_receiver_addr);
+        
+        // Send to unregistered user
+        let send_amount = 100000;
+        aptsend::send_from_primary_vault(
+            user,
+            b"discord",
+            u128_to_bytes(99999),
+            send_amount
+        );
+        
+        // Calculate expected amounts
+        let expected_net = calculate_expected_net_amount(send_amount);
+        let expected_fee = calculate_expected_fee(send_amount);
+        
+        // Verify recipient received funds in temp vault
+        let recipient_vault = aptsend::get_route_target_vault(b"discord", u128_to_bytes(99999));
+        let recipient_balance = aptsend::get_vault_apt_balance(recipient_vault);
+        assert!(recipient_balance == expected_net, 1);
+        
+        // Verify fee was collected
+        let fee_balance_after = coin::balance<AptosCoin>(fee_receiver_addr);
+        assert!(fee_balance_after == fee_balance_before + expected_fee, 2);
+        
+        // Verify sender's balance decreased
+        let balance_after = aptsend::get_vault_apt_balance(sender_vault);
+        assert!(balance_after == balance_before - send_amount, 3);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, sender = @0x456, receiver = @0x789)]
+    fun test_send_from_primary_vault_to_registered_user(
+        aptos_framework: &signer,
+        admin: &signer,
+        sender: &signer,
+        receiver: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let sender_addr = signer::address_of(sender);
+        let receiver_addr = signer::address_of(receiver);
+        
+        // Register both users
+        aptsend::register_user(admin, sender_addr, b"telegram", u128_to_bytes(11111));
+        aptsend::register_user(admin, receiver_addr, b"discord", u128_to_bytes(22222));
+        
+        // Fund sender
+        let coins = mint_apt(&mint_cap, 1000000);
+        coin::register<AptosCoin>(sender);
+        coin::deposit(sender_addr, coins);
+        aptsend::deposit_to_primary_vault(sender, 500000);
+        
+        // Send to registered receiver
+        let send_amount = 150000;
+        aptsend::send_from_primary_vault(
+            sender,
+            b"discord",
+            u128_to_bytes(22222),
+            send_amount
+        );
+        
+        // Calculate expected amounts
+        let expected_net = calculate_expected_net_amount(send_amount);
+        
+        // Verify receiver got funds in their primary vault
+        let receiver_vault = aptsend::get_primary_vault_for_owner(receiver_addr);
+        let receiver_balance = aptsend::get_vault_apt_balance(receiver_vault);
+        assert!(receiver_balance == expected_net, 1);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    #[expected_failure(abort_code = 4, location = aptsend_addr::aptsend)] // E_NOT_REGISTERED
+    fun test_send_from_primary_vault_not_registered_fails(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        // Try to send without being registered - should fail
+        aptsend::send_from_primary_vault(
+            user,
+            b"telegram",
+            u128_to_bytes(11111),
+            100000
+        );
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    #[expected_failure(abort_code = 8, location = aptsend_addr::aptsend)] // E_INSUFFICIENT_BALANCE
+    fun test_send_from_primary_vault_insufficient_balance_fails(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register user but don't fund vault
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Try to send more than balance - should fail
+        aptsend::send_from_primary_vault(
+            user,
+            b"discord",
+            u128_to_bytes(99999),
+            100000
+        );
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    #[expected_failure(abort_code = 2, location = aptsend_addr::aptsend)] // E_PAUSED
+    fun test_send_from_primary_vault_fails_when_paused(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register and fund user
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        let coins = mint_apt(&mint_cap, 1000000);
+        coin::register<AptosCoin>(user);
+        coin::deposit(user_addr, coins);
+        aptsend::deposit_to_primary_vault(user, 500000);
+        
+        // Pause the contract
+        aptsend::admin_set_paused(admin, true);
+        
+        // Try to send - should fail
+        aptsend::send_from_primary_vault(
+            user,
+            b"discord",
+            u128_to_bytes(99999),
+            100000
+        );
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_send_from_primary_vault_with_zero_fee(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Set fee to 0
+        aptsend::admin_set_fee(admin, 0);
+        
+        // Register and fund user
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        let coins = mint_apt(&mint_cap, 1000000);
+        coin::register<AptosCoin>(user);
+        coin::deposit(user_addr, coins);
+        aptsend::deposit_to_primary_vault(user, 500000);
+        
+        // Send to another user
+        let send_amount = 100000;
+        aptsend::send_from_primary_vault(
+            user,
+            b"discord",
+            u128_to_bytes(99999),
+            send_amount
+        );
+        
+        // Verify recipient received full amount (no fee)
+        let recipient_vault = aptsend::get_route_target_vault(b"discord", u128_to_bytes(99999));
+        let recipient_balance = aptsend::get_vault_apt_balance(recipient_vault);
+        assert!(recipient_balance == send_amount, 1);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_send_fa_from_primary_vault_to_unregistered_user(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) acquires TestFAStore {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let admin_addr = signer::address_of(admin);
+        let user_addr = signer::address_of(user);
+        
+        // Create and add supported FA
+        let fa_metadata = create_test_fa(admin);
+        aptsend::admin_add_supported_fa(admin, fa_metadata);
+        
+        // Register user
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Fund user's vault with FA
+        let sender_vault = aptsend::get_primary_vault_for_owner(user_addr);
+        primary_fungible_store::ensure_primary_store_exists(sender_vault, fa_metadata);
+        mint_test_fa(admin_addr, fa_metadata, sender_vault, 1000000);
+        
+        // Get initial balances
+        let balance_before = aptsend::get_vault_fa_balance(sender_vault, fa_metadata);
+        let (_, fee_receiver_addr) = aptsend::get_fee_config();
+        let fee_balance_before = aptsend::get_vault_fa_balance(fee_receiver_addr, fa_metadata);
+        
+        // Send FA to unregistered user
+        let send_amount = 100000;
+        aptsend::send_fa_from_primary_vault(
+            user,
+            b"discord",
+            u128_to_bytes(99999),
+            fa_metadata,
+            send_amount
+        );
+        
+        // Calculate expected amounts
+        let expected_net = calculate_expected_net_amount(send_amount);
+        let expected_fee = calculate_expected_fee(send_amount);
+        
+        // Verify recipient received FA in temp vault
+        let recipient_vault = aptsend::get_route_target_vault(b"discord", u128_to_bytes(99999));
+        let recipient_balance = aptsend::get_vault_fa_balance(recipient_vault, fa_metadata);
+        assert!(recipient_balance == expected_net, 1);
+        
+        // Verify fee was collected
+        let fee_balance_after = aptsend::get_vault_fa_balance(fee_receiver_addr, fa_metadata);
+        assert!(fee_balance_after == fee_balance_before + expected_fee, 2);
+        
+        // Verify sender's balance decreased
+        let balance_after = aptsend::get_vault_fa_balance(sender_vault, fa_metadata);
+        assert!(balance_after == balance_before - send_amount, 3);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, sender = @0x456, receiver = @0x789)]
+    fun test_send_fa_from_primary_vault_to_registered_user(
+        aptos_framework: &signer,
+        admin: &signer,
+        sender: &signer,
+        receiver: &signer
+    ) acquires TestFAStore {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let admin_addr = signer::address_of(admin);
+        let sender_addr = signer::address_of(sender);
+        let receiver_addr = signer::address_of(receiver);
+        
+        // Create and add supported FA
+        let fa_metadata = create_test_fa(admin);
+        aptsend::admin_add_supported_fa(admin, fa_metadata);
+        
+        // Register both users
+        aptsend::register_user(admin, sender_addr, b"telegram", u128_to_bytes(11111));
+        aptsend::register_user(admin, receiver_addr, b"discord", u128_to_bytes(22222));
+        
+        // Fund sender with FA
+        let sender_vault = aptsend::get_primary_vault_for_owner(sender_addr);
+        primary_fungible_store::ensure_primary_store_exists(sender_vault, fa_metadata);
+        mint_test_fa(admin_addr, fa_metadata, sender_vault, 1000000);
+        
+        // Send FA to registered receiver
+        let send_amount = 150000;
+        aptsend::send_fa_from_primary_vault(
+            sender,
+            b"discord",
+            u128_to_bytes(22222),
+            fa_metadata,
+            send_amount
+        );
+        
+        // Calculate expected amounts
+        let expected_net = calculate_expected_net_amount(send_amount);
+        
+        // Verify receiver got FA in their primary vault
+        let receiver_vault = aptsend::get_primary_vault_for_owner(receiver_addr);
+        let receiver_balance = aptsend::get_vault_fa_balance(receiver_vault, fa_metadata);
+        assert!(receiver_balance == expected_net, 1);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    #[expected_failure(abort_code = 10, location = aptsend_addr::aptsend)] // E_UNSUPPORTED_FA
+    fun test_send_fa_from_primary_vault_unsupported_fa_fails(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Create FA but don't add to supported list
+        let unsupported_fa = create_test_fa(admin);
+        
+        // Register user
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Try to send unsupported FA - should fail
+        aptsend::send_fa_from_primary_vault(
+            user,
+            b"discord",
+            u128_to_bytes(99999),
+            unsupported_fa,
+            100000
+        );
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    #[expected_failure(abort_code = 4, location = aptsend_addr::aptsend)] // E_NOT_REGISTERED
+    fun test_send_fa_from_primary_vault_not_registered_fails(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        // Create and add supported FA
+        let fa_metadata = create_test_fa(admin);
+        aptsend::admin_add_supported_fa(admin, fa_metadata);
+        
+        // Try to send without being registered - should fail
+        aptsend::send_fa_from_primary_vault(
+            user,
+            b"telegram",
+            u128_to_bytes(11111),
+            fa_metadata,
+            100000
+        );
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    #[expected_failure(abort_code = 8, location = aptsend_addr::aptsend)] // E_INSUFFICIENT_BALANCE
+    fun test_send_fa_from_primary_vault_insufficient_balance_fails(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Create and add supported FA
+        let fa_metadata = create_test_fa(admin);
+        aptsend::admin_add_supported_fa(admin, fa_metadata);
+        
+        // Register user but don't fund vault
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Try to send more than balance - should fail
+        aptsend::send_fa_from_primary_vault(
+            user,
+            b"discord",
+            u128_to_bytes(99999),
+            fa_metadata,
+            100000
+        );
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_send_fa_from_primary_vault_with_custom_fee(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) acquires TestFAStore {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let admin_addr = signer::address_of(admin);
+        let user_addr = signer::address_of(user);
+        
+        // Set custom fee (5%)
+        aptsend::admin_set_fee(admin, 500);
+        
+        // Create and add supported FA
+        let fa_metadata = create_test_fa(admin);
+        aptsend::admin_add_supported_fa(admin, fa_metadata);
+        
+        // Register and fund user
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        let sender_vault = aptsend::get_primary_vault_for_owner(user_addr);
+        primary_fungible_store::ensure_primary_store_exists(sender_vault, fa_metadata);
+        mint_test_fa(admin_addr, fa_metadata, sender_vault, 1000000);
+        
+        // Send FA
+        let send_amount = 100000;
+        aptsend::send_fa_from_primary_vault(
+            user,
+            b"discord",
+            u128_to_bytes(99999),
+            fa_metadata,
+            send_amount
+        );
+        
+        // Verify recipient received 95000 (5% fee)
+        let recipient_vault = aptsend::get_route_target_vault(b"discord", u128_to_bytes(99999));
+        let recipient_balance = aptsend::get_vault_fa_balance(recipient_vault, fa_metadata);
+        assert!(recipient_balance == 95000, 1);
+        
+        // Verify fee receiver got 5000
+        let (_, fee_receiver_addr) = aptsend::get_fee_config();
+        let fee_balance = aptsend::get_vault_fa_balance(fee_receiver_addr, fa_metadata);
+        assert!(fee_balance == 5000, 2);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
+
+    #[test(aptos_framework = @0x1, admin = @aptsend_addr, user = @0x456)]
+    fun test_send_from_primary_vault_cross_channel(
+        aptos_framework: &signer,
+        admin: &signer,
+        user: &signer
+    ) {
+        let (burn_cap, mint_cap) = setup_test(aptos_framework, admin);
+        
+        let user_addr = signer::address_of(user);
+        
+        // Register user with telegram
+        aptsend::register_user(admin, user_addr, b"telegram", u128_to_bytes(11111));
+        
+        // Fund user
+        let coins = mint_apt(&mint_cap, 1000000);
+        coin::register<AptosCoin>(user);
+        coin::deposit(user_addr, coins);
+        aptsend::deposit_to_primary_vault(user, 500000);
+        
+        // Send to discord channel
+        let send_amount = 75000;
+        aptsend::send_from_primary_vault(
+            user,
+            b"discord",
+            u128_to_bytes(99999),
+            send_amount
+        );
+        
+        // Calculate expected amounts
+        let expected_net = calculate_expected_net_amount(send_amount);
+        
+        // Verify cross-channel transfer worked
+        let recipient_vault = aptsend::get_route_target_vault(b"discord", u128_to_bytes(99999));
+        let recipient_balance = aptsend::get_vault_apt_balance(recipient_vault);
+        assert!(recipient_balance == expected_net, 1);
+        
+        coin::destroy_burn_cap(burn_cap);
+        coin::destroy_mint_cap(mint_cap);
+    }
 }

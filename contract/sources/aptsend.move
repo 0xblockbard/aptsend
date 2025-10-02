@@ -573,6 +573,11 @@ module aptsend_addr::aptsend {
         let from_route = smart_table::borrow(&social_directory.social_routes, from_social_key);
         let sender_vault = from_route.target_vault;
 
+        // Check if primary store exists and has sufficient balance
+        if (!primary_fungible_store::primary_store_exists(sender_vault, fa_metadata)) {
+            abort E_INSUFFICIENT_BALANCE
+        };
+        
         let sender_store = primary_fungible_store::primary_store(sender_vault, fa_metadata);
         assert!(fungible_asset::balance(sender_store) >= amount, E_INSUFFICIENT_BALANCE);
 
@@ -677,6 +682,111 @@ module aptsend_addr::aptsend {
         let owner = signer::address_of(user_signer);
         let primary_vault = get_primary_vault_for_owner(owner);
         transfer_fa_from_vault(primary_vault, to_address, fa_metadata, amount);
+    }
+
+    public entry fun send_from_primary_vault(
+        user_signer: &signer,
+        to_channel: vector<u8>,
+        to_user_id: vector<u8>,
+        amount: u64
+    ) acquires Config, VaultDirectory, SocialDirectory, VaultCapabilityRegistry, VaultCapabilityTemp, AptSendSigner {
+        
+        let config = borrow_global<Config>(module_addr());
+        assert!(!config.paused, E_PAUSED);
+        
+        let owner = signer::address_of(user_signer);
+        let vault_directory = borrow_global<VaultDirectory>(module_addr());
+        assert!(
+            smart_table::contains(&vault_directory.owner_to_primary_vault, owner),
+            E_NOT_REGISTERED
+        );
+        
+        let sender_vault = *smart_table::borrow(&vault_directory.owner_to_primary_vault, owner);
+        assert!(coin::balance<AptosCoin>(sender_vault) >= amount, E_INSUFFICIENT_BALANCE);
+        
+        // Calculate fee and net amount
+        let (fee_amount, net_amount) = calculate_fee_and_net_amount(amount, config);
+        
+        let recipient_vault = get_or_create_social_route_and_vault(to_channel, to_user_id);
+        
+        transfer_apt_from_vault(sender_vault, recipient_vault, net_amount);
+        
+        // Transfer fee to fee receiver (if fee > 0)
+        if (fee_amount > 0) {
+            transfer_apt_from_vault(sender_vault, config.fee_receiver, fee_amount);
+        };
+        
+        event::emit(TransferEvent {
+            from_owner: owner, 
+            from_vault: sender_vault, 
+            to_vault_or_address: recipient_vault, 
+            amount,
+            net_amount,
+            fee: fee_amount,
+            context_channel: to_channel,
+            context_external_id: to_user_id,
+            executed_at_seconds: timestamp::now_seconds(),
+        })
+    }
+
+    public entry fun send_fa_from_primary_vault(
+        user_signer: &signer,
+        to_channel: vector<u8>,
+        to_user_id: vector<u8>,
+        fa_metadata: Object<Metadata>,
+        amount: u64
+    ) acquires Config, VaultDirectory, SocialDirectory, VaultCapabilityRegistry, VaultCapabilityTemp, AptSendSigner {
+        
+        let config = borrow_global<Config>(module_addr());
+        assert!(!config.paused, E_PAUSED);
+        assert_fa_supported(fa_metadata, config);
+        
+        let owner = signer::address_of(user_signer);
+        let vault_directory = borrow_global<VaultDirectory>(module_addr());
+        assert!(
+            smart_table::contains(&vault_directory.owner_to_primary_vault, owner),
+            E_NOT_REGISTERED
+        );
+        
+        let sender_vault = *smart_table::borrow(&vault_directory.owner_to_primary_vault, owner);
+
+        // Check if primary store exists and has sufficient balance
+        if (!primary_fungible_store::primary_store_exists(sender_vault, fa_metadata)) {
+            abort E_INSUFFICIENT_BALANCE
+        };
+        
+        let sender_store = primary_fungible_store::primary_store(sender_vault, fa_metadata);
+        assert!(fungible_asset::balance(sender_store) >= amount, E_INSUFFICIENT_BALANCE);
+        
+        let (fee_amount, net_amount) = calculate_fee_and_net_amount(amount, config);
+        
+        let recipient_vault = get_or_create_social_route_and_vault_for_fa(to_channel, to_user_id, fa_metadata);
+        
+        if (!primary_fungible_store::primary_store_exists(recipient_vault, fa_metadata)) {
+            primary_fungible_store::ensure_primary_store_exists(recipient_vault, fa_metadata);
+        };
+        
+        transfer_fa_from_vault(sender_vault, recipient_vault, fa_metadata, net_amount);
+        
+        if (fee_amount > 0) {
+            if (!primary_fungible_store::primary_store_exists(config.fee_receiver, fa_metadata)) {
+                primary_fungible_store::ensure_primary_store_exists(config.fee_receiver, fa_metadata);
+            };
+            transfer_fa_from_vault(sender_vault, config.fee_receiver, fa_metadata, fee_amount);
+        };
+        
+        event::emit(FATransferEvent {
+            from_owner: owner, 
+            from_vault: sender_vault, 
+            to_vault_or_address: recipient_vault, 
+            amount,
+            net_amount,
+            fee: fee_amount,
+            fa_metadata,
+            context_channel: to_channel,
+            context_external_id: to_user_id,
+            executed_at_seconds: timestamp::now_seconds(),
+        })
     }
 
     // ======================== Read (View) functions ========================
