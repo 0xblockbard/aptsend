@@ -56,7 +56,9 @@ export interface DiscordIdentity extends ChannelIdentity {
 
 export interface EVMIdentity extends ChannelIdentity {
   metadata?: {
-    chain_id?: number;
+    address: string;
+    chain_id: number;
+    chain_name: string;
     ens_name?: string;
   };
 }

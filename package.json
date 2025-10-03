@@ -25,7 +25,9 @@
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-toast": "^1.2.1",
-    "@tanstack/react-query": "^5.51.23",
+    "@reown/appkit": "^1.8.8",
+    "@reown/appkit-adapter-wagmi": "^1.8.8",
+    "@tanstack/react-query": "^5.90.2",
     "@thalalabs/surf": "^1.9.6",
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.0",
@@ -38,7 +40,9 @@
     "stream-browserify": "^3.0.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",
-    "util": "^0.12.5"
+    "util": "^0.12.5",
+    "viem": "^2.37.12",
+    "wagmi": "^2.17.5"
   },
   "devDependencies": {
     "@types/node": "^20.14.1",

@@ -3,13 +3,15 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AccountAddress, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 import { getAllIdentities } from '../services/channelApi';
 import { useTwitterChannel } from './useTwitterChannel';
+import { useEVMChannel } from './useEVMChannel';
 import { useGoogleChannel } from './useGoogleChannel';
 import { 
   ChannelIdentity, 
   ChannelType,
   TwitterIdentity,
   GoogleIdentity,
-  SyncResult
+  SyncResult,
+  EVMIdentity
 } from '../types/channelTypes';
 
 import { MODULE_ADDRESS, NETWORK } from "@/constants";
@@ -112,21 +114,33 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
   });
 
   // Google Identity and Channel
-  // const googleIdentities = useMemo(() => {
-  //   return (identities.google || []) as GoogleIdentity[];
-  // }, [identities]);
-
   const googleIdentities = useMemo(() => {
-    const google = (identities.google || []) as GoogleIdentity[];
-    console.log('Google identities:', google);
-    return google;
+    return (identities.google || []) as GoogleIdentity[];
   }, [identities]);
+
+  // const googleIdentities = useMemo(() => {
+  //   const google = (identities.google || []) as GoogleIdentity[];
+  //   console.log('Google identities:', google);
+  //   return google;
+  // }, [identities]);
 
   const google = useGoogleChannel({
     ownerAddress,
     googleIdentities,
     onIdentitiesChange: loadAllIdentities
   });
+
+  // EVM Identity and Channel
+  const evmIdentities = useMemo(() => {
+    return (identities.evm || []) as EVMIdentity[];
+  }, [identities]);
+
+  const evm = useEVMChannel({
+    ownerAddress,
+    evmIdentities,
+    onIdentitiesChange: loadAllIdentities
+  });
+
 
   /**
    * Handle post-sync logic: check for vault if needed, then reload identities
@@ -161,15 +175,18 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
       
       case 'telegram':
 
-      case 'email':
+      case 'email': {
         const result = await google.sync();
         return handlePostSync(result);
+      }
 
       case 'discord':
-      case 'evm':
-        // TODO: Implement other channels, then call handlePostSync(result)
-        return { success: false, error: `${channelType} not implemented yet` };
-      
+
+      case 'evm':{
+        const result = await evm.sync();
+        return handlePostSync(result);
+      }
+
       default:
         return { success: false, error: 'Unknown channel type' };
     }
@@ -190,6 +207,7 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
         case 'discord':
 
       case 'evm':
+        
         throw new Error(`${channelType} unsync not implemented yet`);
       
       default:

@@ -1,5 +1,6 @@
 import LinkedAccountItem from "./LinkedAccountItem";
-import { Channel } from "@/types/channelTypes";
+import { EVMChannelRow } from "./EVMChannelRow";
+import { Channel, EVMIdentity } from "@/types/channelTypes";
 
 interface ChannelCardProps {
   channel: Channel;
@@ -17,6 +18,7 @@ export default function ChannelCard({
   onUnsync 
 }: ChannelCardProps) {
   const hasAccounts = channel.accounts.length > 0;
+  const isEVM = channel.type === 'evm';
   
   return (
     <div className="rounded-lg border border-gray-200 bg-white shadow-sm transition-all">
@@ -50,12 +52,23 @@ export default function ChannelCard({
           </div>
         </div>
 
-        <button
-          onClick={onSync}
-          className="rounded-md bg-blue-500/80 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
-        >
-          + Sync
-        </button>
+        {/* Render appropriate sync button based on channel type */}
+        {(() => {
+          switch (channel.type) {
+            case 'evm':
+              return <EVMChannelRow onSuccess={onSync} />;
+            // Future: case 'solana': return <SolanaChannelRow onSuccess={onSync} />;
+            default:
+              return (
+                <button
+                  onClick={onSync}
+                  className="rounded-md bg-blue-500/80 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
+                >
+                  + Sync
+                </button>
+              );
+          }
+        })()}
 
         <div
           className={`h-3 w-3 rounded-full flex-shrink-0 ${
@@ -65,26 +78,72 @@ export default function ChannelCard({
         />
       </div>
 
-      <div 
-        className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{ 
-          maxHeight: isExpanded ? `${channel.accounts.length * 80}px` : '0px'
-        }}
-      >
-        {hasAccounts && (
-          <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
-            <div className="space-y-2">
-              {channel.accounts.map((account) => (
-                <LinkedAccountItem
-                  key={account.id}
-                  account={account}
-                  onUnsync={() => onUnsync(account.id)}
-                />
-              ))}
+      {/* EVM channel renders differently based on connection state */}
+      {isEVM ? (
+        <div 
+          className="overflow-hidden transition-all duration-300 ease-in-out"
+          style={{ 
+            maxHeight: isExpanded ? `${channel.accounts.length * 80}px` : '0px'
+          }}
+        >
+          {hasAccounts && (
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="space-y-2">
+                {channel.accounts.map((account) => {
+                  const evmAccount = account as EVMIdentity;
+
+                  return (
+                    <div
+                      key={account.id}
+                      className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm"
+                    >
+                      <div className="flex flex-col">
+                        
+                        <span className="font-medium font-mono text-sm">
+                          {evmAccount.metadata?.address?.slice(0, 6)}...{evmAccount.metadata?.address?.slice(-4)}
+                        </span>
+
+                        {evmAccount.metadata?.chain_name && (
+                          <span className="text-xs text-gray-500 mt-0.5">
+                            {evmAccount.metadata.chain_name}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => onUnsync(account.id)}
+                        className="rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        Unsync
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div 
+          className="overflow-hidden transition-all duration-300 ease-in-out"
+          style={{ 
+            maxHeight: isExpanded ? `${channel.accounts.length * 80}px` : '0px'
+          }}
+        >
+          {hasAccounts && (
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="space-y-2">
+                {channel.accounts.map((account) => (
+                  <LinkedAccountItem
+                    key={account.id}
+                    account={account}
+                    onUnsync={() => onUnsync(account.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
