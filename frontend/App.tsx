@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer"; 
 import { VaultBalanceProvider } from "./contexts/VaultBalanceContext";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/auth/google/callback" element={<GoogleCallback />} />
 
         </Routes>
+         <Footer />
       </VaultBalanceProvider>
     </BrowserRouter>
   );
