@@ -1,10 +1,8 @@
-import { AccountAddress } from "@aptos-labs/ts-sdk";
-
 // ============================================================================
 // Channel Types
 // ============================================================================
 
-export type ChannelType = "twitter" | "telegram" | "email" | "discord" | "evm";
+export type ChannelType = "twitter" | "telegram" | "google" | "discord" | "evm";
 export type ChannelStatus = "pending" | "linked" | "failed";
 
 // ============================================================================
@@ -116,6 +114,7 @@ export interface GoogleCallbackResponse {
 export interface SyncResult {
   success: boolean;
   error?: string;
+  isUserRejection?: boolean; // Add this new field
 }
 
 export interface UseTwitterChannelReturn {

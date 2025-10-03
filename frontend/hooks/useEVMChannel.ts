@@ -1,5 +1,5 @@
 // hooks/useEVMChannel.ts
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { AccountAddress } from '@aptos-labs/ts-sdk';
 import { useAccount, useSignMessage, useDisconnect } from 'wagmi';
 import { verifyMessage } from 'viem';
@@ -21,6 +21,34 @@ export function useEVMChannel({
   const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
   const [isLoading, setIsLoading] = useState(false);
+  const [needsSignature, setNeedsSignature] = useState(false);
+  const hasTriggeredSync = useRef(false);
+  const previousIsConnected = useRef(isConnected);
+
+  // Auto-trigger sync when wallet connects
+  useEffect(() => {
+    const justConnected = isConnected && !previousIsConnected.current;
+    
+    if (justConnected && ownerAddress && evmAddress && !hasTriggeredSync.current) {
+      hasTriggeredSync.current = true;
+      setNeedsSignature(false);
+      
+      // Small delay to ensure connection is stable
+      setTimeout(() => {
+        sync();
+      }, 100);
+    }
+
+    previousIsConnected.current = isConnected;
+  }, [isConnected, ownerAddress, evmAddress]);
+
+  // Reset trigger flag when disconnected
+  useEffect(() => {
+    if (!isConnected) {
+      hasTriggeredSync.current = false;
+      setNeedsSignature(false);
+    }
+  }, [isConnected]);
 
   const sync = useCallback(async (): Promise<SyncResult> => {
     if (!ownerAddress) {
@@ -61,17 +89,39 @@ export function useEVMChannel({
       // Disconnect wallet after successful link
       disconnect();
 
+      // Reset states
+      setNeedsSignature(false);
+      hasTriggeredSync.current = false;
+
+      await onIdentitiesChange();
+
       return { success: true };
     } catch (error: any) {
       console.error('Failed to link EVM wallet:', error);
+      
+      // Check if user rejected/closed the signature request
+      const isUserRejection = 
+        error.message?.toLowerCase().includes('user rejected') ||
+        error.message?.toLowerCase().includes('user denied') ||
+        error.message?.toLowerCase().includes('user cancelled') ||
+        error.code === 4001 || // MetaMask rejection code
+        error.code === 'ACTION_REJECTED';
+
+      if (isUserRejection) {
+        // User closed the modal, mark that they need to sign
+        setNeedsSignature(true);
+        hasTriggeredSync.current = false;
+      }
+
       return {
         success: false,
         error: error.response?.data?.error || error.message || 'Failed to link wallet',
+        isUserRejection,
       };
     } finally {
       setIsLoading(false);
     }
-  }, [ownerAddress, evmAddress, chainId, signMessageAsync, disconnect]);
+  }, [ownerAddress, evmAddress, chainId, signMessageAsync, disconnect, onIdentitiesChange]);
 
   const unsync = useCallback(async (accountId: string): Promise<void> => {
     // TODO: Implement unsync API call
@@ -88,5 +138,6 @@ export function useEVMChannel({
     chainId,
     isConnected,
     disconnect,
+    needsSignature,
   };
 }

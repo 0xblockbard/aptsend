@@ -109,7 +109,7 @@ export default function VaultCard({
       if (isCacheValid(vault.address)) {
         const cached = getBalances(vault.address);
         if (cached) {
-          console.log('✅ Loading from CACHE:', cached);
+          console.log('Loading from CACHE:', cached);
           setLocalBalances(cached);
           return;
         }

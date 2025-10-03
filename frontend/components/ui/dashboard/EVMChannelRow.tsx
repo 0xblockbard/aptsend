@@ -18,7 +18,7 @@ export function EVMChannelRow({ onSuccess }: EVMChannelRowProps) {
   const evm = useEVMChannel({
     ownerAddress: aptosAccount?.address,
     evmIdentities: [],
-    onIdentitiesChange: async () => onSuccess(),
+    onIdentitiesChange: async () => {},
   });
 
   const handleClick = async () => {
@@ -31,30 +31,40 @@ export function EVMChannelRow({ onSuccess }: EVMChannelRowProps) {
       return;
     }
 
-    // If not connected, open wallet modal
+    // If not connected OR needs signature, open wallet modal or trigger signing
     if (!isConnected) {
       open();
       return;
     }
 
-    // If connected, trigger signing
-    const result = await evm.sync();
+    // If connected and needs signature (user closed modal previously), trigger signing again
+    if (evm.needsSignature || isConnected) {
+      const result = await evm.sync();
 
-    if (result.success) {
-      toast({
-        title: 'Success',
-        description: 'EVM wallet linked successfully! Blockchain transaction is processing...',
-      });
-    } else {
-      // Only show error if it's not a user rejection
-      if (!result.error?.includes('User rejected') && !result.error?.includes('User denied')) {
+      if (result.success) {
         toast({
-          variant: 'destructive',
-          title: 'Failed to Link Wallet',
-          description: result.error || 'An error occurred while linking your wallet',
+          title: 'Success',
+          description: 'EVM wallet linked successfully! Blockchain transaction is processing...',
         });
+        onSuccess();
+      } else {
+        // Only show error if it's not a user rejection
+        if (!result.isUserRejection) {
+          toast({
+            variant: 'destructive',
+            title: 'Failed to Link Wallet',
+            description: result.error || 'An error occurred while linking your wallet',
+          });
+        }
       }
     }
+  };
+
+  // Determine button text based on state
+  const getButtonText = () => {
+    if (evm.isLoading) return 'Signing...';
+    if (isConnected && evm.needsSignature) return 'Sign Message';
+    return '+ Connect';
   };
 
   return (
@@ -63,7 +73,7 @@ export function EVMChannelRow({ onSuccess }: EVMChannelRowProps) {
       disabled={evm.isLoading}
       className="rounded-md bg-blue-500/80 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors whitespace-nowrap disabled:opacity-50"
     >
-      {evm.isLoading ? 'Signing...' : '+ Connect'}
+      {getButtonText()}
     </button>
   );
 }

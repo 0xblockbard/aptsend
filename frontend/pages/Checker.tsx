@@ -44,6 +44,8 @@ export default function Checker() {
         identifier: identifier.trim()
       });
 
+      console.log('Sending request with:', { channel, identifier: identifier.trim() });
+
       const backendResponse = await fetch(
         `${API_BASE_URL}/checker/get-identity?${params}`,
         {
@@ -197,17 +199,50 @@ export default function Checker() {
     console.log('Claiming from vault:', result.vault_address);
   }
 
+  const getInputLabel = () => {
+    switch (channel) {
+      case 'twitter':
+        return 'Username';
+      case 'telegram':
+        return 'Handle';
+      case 'discord':
+        return 'Username';
+      case 'google':
+        return 'Email';
+      case 'evm':
+        return 'Wallet Address';
+      default:
+        return 'Identifier';
+    }
+  };
+
   const getPlaceholder = () => {
     switch (channel) {
       case 'twitter': return 'e.g. aptos (no @)';
-      case 'telegram': return 'e.g. @username or user ID';
-      case 'email': return 'e.g. user@example.com';
-      case 'discord': return 'e.g. username#1234 or user ID';
+      case 'telegram': return 'e.g. handle';
+      case 'google': return 'e.g. user@gmail.com';
+      case 'discord': return 'e.g. username#1234';
+      case 'evm': return 'e.g. 0xABC...';
+      default: return 'Enter identifier';
+    }
+  };
+
+  const getChannelDisplayName = () => {
+    switch (searchedChannel) {
+      case 'twitter': return 'Twitter / X';
+      case 'telegram': return 'Telegram';
+      case 'google': return 'Email';
+      case 'discord': return 'Discord';
+      case 'evm': return 'Ethereum / EVM';
+      default: {
+        const channel = searchedChannel as string;
+        return channel.charAt(0).toUpperCase() + channel.slice(1);
+      }
     }
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-10">
+    <div className="min-h-screen mx-auto max-w-2xl px-6 py-10">
       <h1 className="text-2xl font-semibold">Checker</h1>
       <p className="text-sm text-gray-600 pt-1">
         Check the balance for your social account and if you have any unclaimed tokens
@@ -220,19 +255,23 @@ export default function Checker() {
           </label>
           <select
             value={channel}
-            onChange={(e) => setChannel(e.target.value as ChannelType)}
+            onChange={(e) => {
+              setChannel(e.target.value as ChannelType);
+              setIdentifier(''); // Clear identifier when channel changes
+            }}
             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
           >
             <option value="twitter">Twitter / X</option>
             <option value="telegram">Telegram</option>
-            <option value="email">Email</option>
+            <option value="google">Email</option>
             <option value="discord">Discord</option>
+            <option value="evm">Ethereum / EVM</option>
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Identifier
+            {getInputLabel()}
           </label>
           <input
             value={identifier}
@@ -263,9 +302,9 @@ export default function Checker() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="text-sm font-medium text-gray-500">
-                {searchedChannel.charAt(0).toUpperCase() + searchedChannel.slice(1)}
+                {getChannelDisplayName()}
               </div>
-              <div className="text-base font-semibold">{searchedIdentifier}</div>
+              <div className="text-base font-semibold break-all">{searchedIdentifier}</div>
             </div>
             <div className="flex gap-2">
               {result.status === 'temp' && (

@@ -23,7 +23,7 @@ export default function Send() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-10">
+    <div className="min-h-screen mx-auto max-w-2xl px-6 py-10">
       <h1 className="text-2xl font-semibold">Send Tokens</h1>
       <p className="text-sm italic pt-1">Send to someone on any channel.</p>
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">

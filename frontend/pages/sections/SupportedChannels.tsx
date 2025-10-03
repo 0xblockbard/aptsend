@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Bird, Send, MessageSquare } from "lucide-react"; // X/Twitter, Telegram, Discord
 
 type ChannelCard = {
-  key: "twitter" | "telegram" | "discord";
+  key: "twitter" | "telegram" | "discord" | "email" | "evm" | "sol";
   name: string;
   description: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
@@ -31,6 +31,28 @@ const cards: ChannelCard[] = [
     icon: MessageSquare,
     href: "/checker?channel=discord",
   },
+
+  {
+    key: "email",
+    name: "Email",
+    description: "Send to any email. Claim funds at any time by syncing your Google account",
+    icon: Bird,
+    href: "/checker?channel=google",
+  },
+  {
+    key: "evm",
+    name: "EVM",
+    description: "Send to any EVM Address. Claim funds at any time by connecting with Metamask or Rabby",
+    icon: Send,
+    href: "/checker?channel=evm",
+  },
+  {
+    key: "sol",
+    name: "Solana",
+    description: "Send to any Solana Address. Claim funds at any time by connecting with Phantom",
+    icon: MessageSquare,
+    href: "/checker?channel=sol",
+  },
 ];
 
 export default function SupportedChannels() {
@@ -54,7 +76,7 @@ export default function SupportedChannels() {
         <div className="mx-auto max-w-2xl lg:mx-0">
           <h2 className="text-5xl font-semibold tracking-tight text-gray-900 sm:text-6xl">Supported Platforms </h2>
           <p className="mt-6 text-lg leading-8 text-gray-600">
-            Pick a channel to verify. You can add more later from your dashboard.
+            Send Aptos or Tokens to anyone on our supported platforms.
           </p>
         </div>
 
@@ -70,9 +92,9 @@ export default function SupportedChannels() {
               <div className="text-base leading-7">
                 <h3 className="font-semibold text-gray-900">{c.name}</h3>
                 <p className="mt-2 text-gray-700">{c.description}</p>
-                <span className="mt-3 inline-block text-sm text-indigo-600 opacity-0 transition group-hover:opacity-100">
+                {/* <span className="mt-3 inline-block text-sm text-indigo-600 opacity-0 transition group-hover:opacity-100">
                   Check claims →
-                </span>
+                </span> */}
               </div>
             </Link>
           ))}

@@ -57,7 +57,7 @@ export default function HeroSection({
             <>
               <WalletSelector/>
               <Link to="/checker" className="text-sm font-semibold text-gray-900 hover:underline">
-                Check claims →
+                Check your social profile →
               </Link>
             </>
           )}

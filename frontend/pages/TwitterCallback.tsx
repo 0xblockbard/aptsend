@@ -23,7 +23,7 @@ export default function TwitterCallback() {
         );
         setTimeout(() => window.close(), 500);
       } else {
-        // ✅ Fallback if not in popup (e.g., user opened link directly)
+        // Fallback if not in popup (e.g., user opened link directly)
         navigate('/dashboard', { state: { error: 'Twitter authentication failed' } });
       }
       return;
@@ -38,12 +38,12 @@ export default function TwitterCallback() {
         );
         setTimeout(() => window.close(), 500);
       } else {
-        // ✅ Fallback if not in popup
+        // Fallback if not in popup
         console.warn('No window.opener - user may have opened callback URL directly');
         navigate('/dashboard', { state: { error: 'Please try connecting again' } });
       }
     } else {
-      // ✅ Handle missing parameters
+      // Handle missing parameters
       console.error('Missing code or state parameters');
       if (window.opener) {
         window.opener.postMessage(

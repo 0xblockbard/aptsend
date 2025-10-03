@@ -156,11 +156,16 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
       const vaultAddress = await waitForVaultOnChain(ownerAddress.toString());
       
       if (vaultAddress) {
+        console.log('✅ Vault found on-chain:', vaultAddress);
+        // Set it immediately from blockchain - this is the source of truth
         setPrimaryVaultAddress(vaultAddress);
+      } else {
+        console.warn('⚠️ Vault not found on-chain after waiting');
       }
     }
     
     // Reload identities to get updated channel status
+    // This will also eventually sync the vault address from backend once the job completes
     await loadAllIdentities();
     
     return result;
@@ -175,7 +180,7 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
       
       case 'telegram':
 
-      case 'email': {
+      case 'google': {
         const result = await google.sync();
         return handlePostSync(result);
       }
@@ -200,7 +205,7 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
       
       case 'telegram':
 
-      case 'email':
+      case 'google':
         await google.unsync(accountId);
         break;
       

@@ -4,10 +4,11 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-aptsend_addr = "0x07b9f51ea800c97a81f3561bdf63410e94a0db137bfda0d3aab96946a00d21ab"
+aptsend_addr = "0xd5ca2760a1d578a8fd488da6f057f3bcaa7c497fa976af75fc501b6930189bd5"
+# aptsend_addr = "_"
 
-[dev-addresses]
-aptsend_addr = "0x07b9f51ea800c97a81f3561bdf63410e94a0db137bfda0d3aab96946a00d21ab"
+# [dev-addresses]
+# aptsend_addr = "0xd5ca2760a1d578a8fd488da6f057f3bcaa7c497fa976af75fc501b6930189bd5"
 
 [dependencies]
 AptosFramework = { git = "https://github.com/aptos-labs/aptos-framework.git", rev = "mainnet", subdir = "aptos-framework" }

@@ -34,9 +34,9 @@ export function WalletSelector() {
   const closeDialog = useCallback(() => setIsDialogOpen(false), []);
 
   const copyAddress = useCallback(async () => {
-    if (!account?.address.toStringLong()) return;
+    if (!account?.address.toString()) return;
     try {
-      await navigator.clipboard.writeText(account.address.toStringLong());
+      await navigator.clipboard.writeText(account.address.toString());
       toast({
         title: "Success",
         description: "Copied wallet address to clipboard.",
@@ -53,7 +53,7 @@ export function WalletSelector() {
   return connected ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button>{account?.ansName || truncateAddress(account?.address.toStringLong()) || "Unknown"}</Button>
+        <Button>{account?.ansName || truncateAddress(account?.address.toString()) || "Unknown"}</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={copyAddress} className="gap-2">

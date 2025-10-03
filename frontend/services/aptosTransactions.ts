@@ -98,6 +98,69 @@ export async function withdrawFAFromVault(
   return transaction;
 }
 
+
+export async function sendFromPrimaryVault(
+  toChannel: string,
+  toUserId: string,
+  amount: string
+): Promise<InputTransactionData> {
+  const amountInOctas = aptToOctas(amount);
+
+  const transaction: InputTransactionData = {
+    data: {
+      function: `${MODULE_ADDRESS}::${MODULE_NAME}::send_from_primary_vault`,
+      functionArguments: [
+        Buffer.from(toChannel), 
+        Buffer.from(toUserId), 
+        amountInOctas,
+      ],
+    },
+  };
+
+  console.log("=== SEND APT TRANSACTION ===");
+  console.log("To Channel:", toChannel);
+  console.log("To User ID:", toUserId);
+  console.log("Amount:", amount);
+  console.log("Amount in octas:", amountInOctas);
+  console.log("Full transaction object:", JSON.stringify(transaction, null, 2));
+
+  return transaction;
+}
+
+export async function sendFAFromPrimaryVault(
+  toChannel: string,
+  toUserId: string,
+  faMetadataAddress: string,
+  amount: string,
+  decimals: number = 6
+): Promise<InputTransactionData> {
+  const amountInSmallestUnit = Math.floor(parseFloat(amount) * Math.pow(10, decimals));
+
+  const transaction: InputTransactionData = {
+    data: {
+      function: `${MODULE_ADDRESS}::${MODULE_NAME}::send_fa_from_primary_vault`,
+      functionArguments: [
+        Buffer.from(toChannel), 
+        Buffer.from(toUserId), 
+        faMetadataAddress, 
+        amountInSmallestUnit,
+      ],
+    },
+  };
+
+  console.log("=== SEND FA TRANSACTION ===");
+  console.log("To Channel:", toChannel);
+  console.log("To User ID:", toUserId);
+  console.log("FA Metadata:", faMetadataAddress);
+  console.log("Amount:", amount);
+  console.log("Amount in smallest unit:", amountInSmallestUnit);
+  console.log("Full transaction object:", JSON.stringify(transaction, null, 2));
+
+  return transaction;
+}
+
+
+
 export const TOKEN_METADATA = {
   usdc: "0x...", // Replace with actual USDC metadata address on Aptos testnet
   usdt: "0x...", // Replace with actual USDT metadata address on Aptos testnet
@@ -117,7 +180,7 @@ export async function waitForTransaction(txHash: string): Promise<boolean> {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          console.log(`✅ Transaction confirmed: ${txHash}`);
+          console.log(`Transaction confirmed: ${txHash}`);
           return true;
         }
       }
