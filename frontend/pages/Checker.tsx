@@ -176,21 +176,21 @@ export default function Checker() {
     }
   }
 
-  async function getVaultFaBalance(vaultAddress: string, faMetadata: string): Promise<number> {
-    try {
-      const result = await aptos.view({
-        payload: {
-          function: `${MODULE_ADDRESS}::aptsend::get_vault_fa_balance`,
-          typeArguments: [],
-          functionArguments: [vaultAddress, faMetadata]
-        }
-      });
-      return parseInt(result[0] as string);
-    } catch (error) {
-      console.error('Error getting FA balance:', error);
-      return 0;
-    }
-  }
+  // async function getVaultFaBalance(vaultAddress: string, faMetadata: string): Promise<number> {
+  //   try {
+  //     const result = await aptos.view({
+  //       payload: {
+  //         function: `${MODULE_ADDRESS}::aptsend::get_vault_fa_balance`,
+  //         typeArguments: [],
+  //         functionArguments: [vaultAddress, faMetadata]
+  //       }
+  //     });
+  //     return parseInt(result[0] as string);
+  //   } catch (error) {
+  //     console.error('Error getting FA balance:', error);
+  //     return 0;
+  //   }
+  // }
 
   async function handleClaim() {
     if (!result?.vault_address || !account) return;

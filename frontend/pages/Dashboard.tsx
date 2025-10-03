@@ -21,7 +21,7 @@ import { VaultInfoType, VaultActionType } from "@/types/vaultTypes";
 export default function Dashboard() {
   const { account, signAndSubmitTransaction } = useWallet();
   const { toast } = useToast();
-  const { identities, primaryVaultAddress, isLoading, syncChannel, unsyncChannel, reload } = useChannels(account?.address);
+  const { identities, primaryVaultAddress, syncChannel, unsyncChannel } = useChannels(account?.address);
   const { clearCache } = useVaultBalanceCache();
   
   const [expandedChannel, setExpandedChannel] = useState<ChannelType | null>(null);

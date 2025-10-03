@@ -12,7 +12,7 @@ interface EVMChannelRowProps {
 export function EVMChannelRow({ onSuccess }: EVMChannelRowProps) {
   const { open } = useAppKit();
   const { account: aptosAccount } = useWallet();
-  const { address: evmAddress, isConnected } = useAccount();
+  const { address: _evmAddress, isConnected } = useAccount();
   const { toast } = useToast();
   
   const evm = useEVMChannel({
