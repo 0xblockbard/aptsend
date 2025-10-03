@@ -38,9 +38,11 @@ export interface TelegramIdentity extends ChannelIdentity {
   };
 }
 
-export interface EmailIdentity extends ChannelIdentity {
+export interface GoogleIdentity extends ChannelIdentity {
   metadata?: {
-    verified: boolean;
+    email: string;
+    name?: string;
+    picture?: string;
   };
 }
 
@@ -85,6 +87,23 @@ export interface TwitterCallbackResponse {
       name: string;
       profile_image_url?: string;
     };
+  };
+}
+
+
+export interface GoogleAuthUrlResponse {
+  auth_url: string;
+  state: string;
+}
+
+export interface GoogleCallbackResponse {
+  success: boolean;
+  identity: {
+    id: string;
+    channel: string;
+    channel_user_id: string;
+    vault_status: number;
+    metadata: Record<string, any>;
   };
 }
 

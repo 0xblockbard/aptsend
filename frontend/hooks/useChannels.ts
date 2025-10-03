@@ -3,10 +3,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AccountAddress, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 import { getAllIdentities } from '../services/channelApi';
 import { useTwitterChannel } from './useTwitterChannel';
+import { useGoogleChannel } from './useGoogleChannel';
 import { 
   ChannelIdentity, 
   ChannelType,
   TwitterIdentity,
+  GoogleIdentity,
   SyncResult
 } from '../types/channelTypes';
 
@@ -97,7 +99,8 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
     loadAllIdentities();
   }, [loadAllIdentities]);
 
-  
+
+  // Twitter Identity and Channel
   const twitterIdentities = useMemo(() => {
     return (identities.twitter || []) as TwitterIdentity[];
   }, [identities]);
@@ -105,6 +108,23 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
   const twitter = useTwitterChannel({
     ownerAddress,
     twitterIdentities,
+    onIdentitiesChange: loadAllIdentities
+  });
+
+  // Google Identity and Channel
+  // const googleIdentities = useMemo(() => {
+  //   return (identities.google || []) as GoogleIdentity[];
+  // }, [identities]);
+
+  const googleIdentities = useMemo(() => {
+    const google = (identities.google || []) as GoogleIdentity[];
+    console.log('Google identities:', google);
+    return google;
+  }, [identities]);
+
+  const google = useGoogleChannel({
+    ownerAddress,
+    googleIdentities,
     onIdentitiesChange: loadAllIdentities
   });
 
@@ -140,7 +160,11 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
       }
       
       case 'telegram':
+
       case 'email':
+        const result = await google.sync();
+        return handlePostSync(result);
+
       case 'discord':
       case 'evm':
         // TODO: Implement other channels, then call handlePostSync(result)
@@ -158,8 +182,13 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
         break;
       
       case 'telegram':
+
       case 'email':
-      case 'discord':
+        await google.unsync(accountId);
+        break;
+      
+        case 'discord':
+
       case 'evm':
         throw new Error(`${channelType} unsync not implemented yet`);
       

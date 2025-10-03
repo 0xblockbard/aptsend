@@ -2,33 +2,33 @@ import { useState, useEffect, useCallback } from 'react';
 import { AccountAddress } from '@aptos-labs/ts-sdk';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 import { 
-  getTwitterAuthUrl, 
-  handleTwitterCallback,
-  unsyncTwitterAccount
-} from '../services/twitterApi';
+  getGoogleAuthUrl, 
+  handleGoogleCallback,
+  unsyncGoogleAccount
+} from '../services/googleApi';
 import { 
-  TwitterIdentity, 
+  GoogleIdentity, 
   SyncResult 
 } from '../types/channelTypes';
 
-interface UseTwitterChannelProps {
+interface UseGoogleChannelProps {
   ownerAddress: AccountAddress | undefined;
-  twitterIdentities: TwitterIdentity[];
+  googleIdentities: GoogleIdentity[];
   onIdentitiesChange: () => Promise<void>;
 }
 
-interface UseTwitterChannelReturn {
-  accounts: TwitterIdentity[];
+interface UseGoogleChannelReturn {
+  accounts: GoogleIdentity[];
   isLoading: boolean;
   sync: () => Promise<SyncResult>;
   unsync: (accountId: string) => Promise<void>;
 }
 
-export function useTwitterChannel({
+export function useGoogleChannel({
   ownerAddress,
-  twitterIdentities,
+  googleIdentities,
   onIdentitiesChange
-}: UseTwitterChannelProps): UseTwitterChannelReturn {
+}: UseGoogleChannelProps): UseGoogleChannelReturn {
   const [isLoading, setIsLoading] = useState(false);
 
   const completeAuth = useCallback(async (code: string, state: string) => {
@@ -36,13 +36,13 @@ export function useTwitterChannel({
     console.log('Code:', code);
     console.log('State:', state);
     
-    const timeoutId = sessionStorage.getItem('twitter_auth_timeout');
+    const timeoutId = sessionStorage.getItem('google_auth_timeout');
     if (timeoutId) {
       clearTimeout(Number(timeoutId));
-      sessionStorage.removeItem('twitter_auth_timeout');
+      sessionStorage.removeItem('google_auth_timeout');
     }
     
-    const codeVerifier = sessionStorage.getItem('twitter_code_verifier');
+    const codeVerifier = sessionStorage.getItem('google_code_verifier');
     console.log('Code verifier from storage:', codeVerifier ? 'Found' : 'NOT FOUND');
     
     if (!codeVerifier) {
@@ -52,15 +52,15 @@ export function useTwitterChannel({
     }
 
     try {
-      console.log('Calling handleTwitterCallback...');
-      await handleTwitterCallback(code, state, codeVerifier);
+      console.log('Calling handleGoogleCallback...');
+      await handleGoogleCallback(code, state, codeVerifier);
       console.log('Callback successful, reloading identities...');
       await onIdentitiesChange();
     } catch (error) {
-      console.error('Twitter callback error:', error);
+      console.error('Google callback error:', error);
       throw error;
     } finally {
-      sessionStorage.removeItem('twitter_code_verifier');
+      sessionStorage.removeItem('google_code_verifier');
       setIsLoading(false);
     }
   }, [onIdentitiesChange]);
@@ -77,19 +77,17 @@ export function useTwitterChannel({
         return;
       }
 
-      if (event.data.type === 'TWITTER_OAUTH_CALLBACK') {
-        console.log('Twitter OAuth callback message detected!');
+      if (event.data.type === 'GOOGLE_OAUTH_CALLBACK') {
+        console.log('Google OAuth callback message detected!');
         const { code, state } = event.data;
         try {
           await completeAuth(code, state);
         } catch (error) {
           console.error('Failed to complete auth:', error);
         }
-      } else if (event.data.type === 'TWITTER_OAUTH_ERROR') { 
+      } else if (event.data.type === 'GOOGLE_OAUTH_ERROR') { 
         console.error('OAuth error from popup:', event.data.error);
         setIsLoading(false);
-      } else {
-        console.log('Message type not recognized:', event.data.type);
       }
     };
 
@@ -120,7 +118,7 @@ export function useTwitterChannel({
         challenge_length: codeChallenge.length 
       });
 
-      sessionStorage.setItem('twitter_code_verifier', codeVerifier);
+      sessionStorage.setItem('google_code_verifier', codeVerifier);
 
       console.log('2. Calling backend for auth URL...');
       console.log('Request payload:', {
@@ -128,13 +126,13 @@ export function useTwitterChannel({
         code_challenge: codeChallenge
       });
 
-      const response = await getTwitterAuthUrl(ownerAddress, codeChallenge);
+      const response = await getGoogleAuthUrl(ownerAddress, codeChallenge);
       console.log('3. Auth URL received:', response);
 
       console.log('4. Opening popup...');
       const popup = window.open(
         response.auth_url,
-        'twitter-oauth',
+        'google-oauth',
         'width=600,height=700,left=200,top=100'
       );
 
@@ -153,10 +151,10 @@ export function useTwitterChannel({
         }
         console.log('Auth timeout - user may have abandoned the flow');
         setIsLoading(false);
-        sessionStorage.removeItem('twitter_code_verifier');
+        sessionStorage.removeItem('google_code_verifier');
       }, 5 * 60 * 1000);
 
-      sessionStorage.setItem('twitter_auth_timeout', abandonmentTimeout.toString());
+      sessionStorage.setItem('google_auth_timeout', abandonmentTimeout.toString());
 
       return { success: true };
     } catch (error) {
@@ -177,10 +175,10 @@ export function useTwitterChannel({
 
     try {
       setIsLoading(true);
-      await unsyncTwitterAccount(ownerAddress, accountId);
+      await unsyncGoogleAccount(ownerAddress, accountId);
       await onIdentitiesChange();
     } catch (error) {
-      console.error('Failed to unsync Twitter account:', error);
+      console.error('Failed to unsync Google account:', error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -188,7 +186,7 @@ export function useTwitterChannel({
   };
 
   return {
-    accounts: twitterIdentities,
+    accounts: googleIdentities,
     isLoading,
     sync,
     unsync,

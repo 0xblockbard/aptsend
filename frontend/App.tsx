@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Checker from "./pages/Checker";
 import Send from "./pages/Send";
 import TwitterCallback from "./pages/TwitterCallback";
+import GoogleCallback from "./pages/GoogleCallback";
 
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
           
           <Route path="/auth/twitter/callback" element={<TwitterCallback />} />
+          <Route path="/auth/google/callback" element={<GoogleCallback />} />
 
         </Routes>
       </VaultBalanceProvider>

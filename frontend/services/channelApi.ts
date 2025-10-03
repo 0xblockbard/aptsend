@@ -21,5 +21,6 @@ export async function getAllIdentities(
   }
 
   const data = await response.json();
+  console.log("all identities: ", data);
   return data;
 }
