@@ -266,11 +266,11 @@ The contract provides several read-only view functions for querying state:
 - **ROUTE_STATUS_TEMP (0)**: Temporary vault created for unregistered recipient
 - **ROUTE_STATUS_LINKED (1)**: Route linked to a registered user's primary vault
 
-## Code Coverage
+## ✅ Code Coverage & Production Readiness
 
-Aptsend has comprehensive 100% test coverage, with all entrypoints thoroughly tested. This includes a full range of scenarios that ensure the platform's reliability and robustness.
+AptSend maintains 100% test coverage across all smart contract entrypoints. Every function has been tested against multiple scenarios including edge cases and error conditions to ensure reliable behavior in production.
 
-The following section provides a breakdown of the tests that validate each function and feature, affirming that AptSend performs as expected under all intended use cases.
+The platform is production-ready and operates on a sustainable business model with a 0.2% transfer fee. It is currently deployed on the testnet at 0xd5ca2760a1d578a8fd488da6f057f3bcaa7c497fa976af75fc501b6930189bd5.
 
 ![Code Coverage](https://res.cloudinary.com/blockbard/image/upload/c_scale,w_auto,q_auto,f_auto,fl_lossy/v1759516789/aptsend-tests_kov5vk.png)
 
@@ -279,6 +279,25 @@ The following section provides a breakdown of the tests that validate each funct
 This repository contains the smart contract implementation and frontend application. The backend is maintained in a separate private repository.
 
 **To request access to the backend repository**, please contact me directly.
+
+## Conclusion
+
+AptSend bridges the gap between traditional social platforms and the Aptos blockchain, making crypto transfers as simple as sending a message. By eliminating the need for wallet addresses and creating automatic onboarding pathways through claimable vaults, AptSend opens new distribution channels for the entire Aptos ecosystem.
+
+I built AptSend to accelerate Aptos adoption by meeting users where they already are — on social media, in their inboxes, and across other blockchains.
+
+## Credits and Support
+
+Thanks for reading!
+
+AptSend is designed and built by 0xBlockBard, a solo indie maker focused on building practical web3 infrastructure that solves real user experience problems.
+
+With over 10 years of development experience across full-stack web applications and smart contracts, I work primarily with Laravel for backend systems and have experience with Solidity, Rust, and Aptos Move. I occasionally write about crypto market trends and interesting projects worth watching.
+
+If you're interested in following my web3 journey:
+
+**Twitter / X:** [0xBlockBard](https://x.com/0xblockbard)  
+**Substack:** [0xBlockBard Research](https://www.0xblockbard.com/)
 
 ## 🤝 Contributing
 
