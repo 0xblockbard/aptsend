@@ -24,7 +24,7 @@ This exponentially expands the range of distribution and adoption for Aptos and 
 
 - **Expand reach:** airdrop to KOLs on X/Twitter via a tweet 
 - **Turn rewards into onboarding:** “You’ve got tokens waiting. Create an Aptos wallet to claim.”
-- **Fewer DMs for addresses:** reward contributors without asking for wallet strings
+- **Fewer DMs for addresses:** reward contributors directly without having to ask for their wallet address
 - **Marketing loop:** every pending vault is a call-to-action to join Aptos
 
 ## 🏗️ How It Works (In simple terms)
