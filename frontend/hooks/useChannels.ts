@@ -1,5 +1,6 @@
+// hooks/useChannels.ts
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { AccountAddress } from '@aptos-labs/ts-sdk';
+import { AccountAddress, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 import { getAllIdentities } from '../services/channelApi';
 import { useTwitterChannel } from './useTwitterChannel';
 import { 
@@ -8,6 +9,11 @@ import {
   TwitterIdentity,
   SyncResult
 } from '../types/channelTypes';
+
+import { MODULE_ADDRESS, NETWORK } from "@/constants";
+
+const aptosConfig = new AptosConfig({ network: NETWORK as Network });
+const aptos = new Aptos(aptosConfig);
 
 export interface UseChannelsReturn {
   identities: Record<string, ChannelIdentity[]>;
@@ -19,8 +25,47 @@ export interface UseChannelsReturn {
 }
 
 /**
+ * Check smart contract for primary vault
+ */
+async function checkPrimaryVaultOnChain(ownerAddress: string): Promise<string | null> {
+  try {
+    const result = await aptos.view({
+      payload: {
+        function: `${MODULE_ADDRESS}::vault_module::get_primary_vault_for_owner`,
+        functionArguments: [ownerAddress],
+      },
+    });
+    
+    return result[0] as string;
+  } catch (error) {
+    console.log('No primary vault found on-chain yet');
+    return null;
+  }
+}
+
+/**
+ * Wait for vault to appear on-chain after registration
+ */
+async function waitForVaultOnChain(
+  ownerAddress: string, 
+  maxAttempts = 20,
+): Promise<string | null> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const vaultAddress = await checkPrimaryVaultOnChain(ownerAddress);
+    
+    if (vaultAddress) {
+      console.log('Vault found on-chain:', vaultAddress);
+      return vaultAddress;
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  
+  return null;
+}
+
+/**
  * Main hook for managing all channel identities
- * This is the single source of truth for all channel data
  */
 export function useChannels(ownerAddress: AccountAddress | undefined): UseChannelsReturn {
   const [identities, setIdentities] = useState<Record<string, ChannelIdentity[]>>({});
@@ -52,34 +97,53 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
     loadAllIdentities();
   }, [loadAllIdentities]);
 
-  // Extract Twitter identities from the main identities object
+  
   const twitterIdentities = useMemo(() => {
     return (identities.twitter || []) as TwitterIdentity[];
   }, [identities]);
 
-  // Initialize Twitter channel hook with identities from main state
   const twitter = useTwitterChannel({
     ownerAddress,
     twitterIdentities,
     onIdentitiesChange: loadAllIdentities
   });
 
+  /**
+   * Handle post-sync logic: check for vault if needed, then reload identities
+   */
+  const handlePostSync = async (result: SyncResult): Promise<SyncResult> => {
+    if (!result.success || !ownerAddress) {
+      return result;
+    }
+
+    // Only check blockchain if user doesn't have a vault yet
+    if (!primaryVaultAddress) {
+      console.log('New user detected. Checking blockchain for vault creation...');
+      const vaultAddress = await waitForVaultOnChain(ownerAddress.toString());
+      
+      if (vaultAddress) {
+        setPrimaryVaultAddress(vaultAddress);
+      }
+    }
+    
+    // Reload identities to get updated channel status
+    await loadAllIdentities();
+    
+    return result;
+  };
+
   const syncChannel = async (channelType: ChannelType): Promise<SyncResult> => {
     switch (channelType) {
-      case 'twitter':
+      case 'twitter': {
         const result = await twitter.sync();
-        if (result.success) {
-          // Twitter hook will call onIdentitiesChange after OAuth completes
-          // But we can also reload here for immediate feedback
-          await loadAllIdentities();
-        }
-        return result;
+        return handlePostSync(result);
+      }
       
       case 'telegram':
       case 'email':
       case 'discord':
       case 'evm':
-        // TODO: Implement other channels
+        // TODO: Implement other channels, then call handlePostSync(result)
         return { success: false, error: `${channelType} not implemented yet` };
       
       default:
@@ -91,14 +155,12 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
     switch (channelType) {
       case 'twitter':
         await twitter.unsync(accountId);
-        // Note: twitter.unsync() already calls onIdentitiesChange (loadAllIdentities) internally
         break;
       
       case 'telegram':
       case 'email':
       case 'discord':
       case 'evm':
-        // TODO: Implement other channels
         throw new Error(`${channelType} unsync not implemented yet`);
       
       default:
