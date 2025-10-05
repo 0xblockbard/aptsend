@@ -16,6 +16,7 @@ import {
 } from "../services/aptosTransactions";
 
 import { ChannelType } from "@/types/channelTypes";
+import { logger } from '../utils/logger';
 import { VaultInfoType, VaultActionType } from "@/types/vaultTypes";
 
 export default function Dashboard() {
@@ -83,9 +84,11 @@ export default function Dashboard() {
   const handleSync = async (channelType: ChannelType) => {
     setIsSyncing(true);
     
+    const capitalizedChannel = channelType.charAt(0).toUpperCase() + channelType.slice(1);
+
     toast({
       title: "Connecting...",
-      description: `Opening ${channelType} authentication...`,
+      description: `Opening ${capitalizedChannel} authentication...`,
     });
 
     try {
@@ -94,10 +97,10 @@ export default function Dashboard() {
       if (result.success) {
         // At this point, useChannels has already called loadAllIdentities()
         // and primaryVaultAddress should be updated
-        
+
         toast({
           title: "Connection Successful",
-          description: `${channelType} account connected${primaryVaultAddress ? ' and vault loaded' : ''}!`,
+          description: `Your ${capitalizedChannel} account is connected!`,
         });
         
         // Trigger vault balance refresh if vault exists
@@ -161,7 +164,7 @@ export default function Dashboard() {
 
       if (transaction) {
         const response = await signAndSubmitTransaction(transaction);
-        console.log("Transaction submitted:", response);
+        logger.log("Transaction submitted:", response);
         
         toast({
           title: `${vaultAction === 'deposit' ? 'Deposit' : 'Withdrawal'} Submitted`,

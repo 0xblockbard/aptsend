@@ -107,6 +107,28 @@ export interface GoogleCallbackResponse {
   };
 }
 
+
+export interface TelegramAuthUrlResponse {
+  auth_url: string;
+  state: string;
+}
+
+export interface TelegramCallbackResponse {
+  success: boolean;
+  identity: {
+    id: string;
+    channel: string;
+    channel_user_id: string;
+    vault_status: number;
+    metadata: {
+      username?: string;
+      first_name?: string;
+      last_name?: string;
+      photo_url?: string;
+    };
+  };
+}
+
 // ============================================================================
 // Hook Return Types
 // ============================================================================
@@ -117,12 +139,19 @@ export interface SyncResult {
   isUserRejection?: boolean; // Add this new field
 }
 
-export interface UseTwitterChannelReturn {
-  accounts: TwitterIdentity[];
+export interface UseSingleChannelReturn<T extends ChannelIdentity> {
+  accounts: T[];
   isLoading: boolean;
   sync: () => Promise<SyncResult>;
   unsync: (accountId: string) => Promise<void>;
 }
+
+// Type aliases for specific channels
+export type UseTwitterChannelReturn = UseSingleChannelReturn<TwitterIdentity>;
+export type UseGoogleChannelReturn = UseSingleChannelReturn<GoogleIdentity>;
+export type UseTelegramChannelReturn = UseSingleChannelReturn<TelegramIdentity>;
+// export type UseDiscordChannelReturn = UseSingleChannelReturn<DiscordIdentity>;
+// export type UseEVMChannelReturn = UseSingleChannelReturn<EVMIdentity>;
 
 export interface UseChannelsReturn {
   identities: Record<string, ChannelIdentity[]>;

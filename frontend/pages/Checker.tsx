@@ -3,6 +3,7 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 import { ChannelType } from "@/types/channelTypes";
 import { API_BASE_URL, MODULE_ADDRESS, NETWORK } from "@/constants";
+import { logger } from '../utils/logger';
 
 interface CheckResult {
   eligible: boolean;
@@ -44,7 +45,7 @@ export default function Checker() {
         identifier: identifier.trim()
       });
 
-      console.log('Sending request with:', { channel, identifier: identifier.trim() });
+      logger.log('Sending request with:', { channel, identifier: identifier.trim() });
 
       const backendResponse = await fetch(
         `${API_BASE_URL}/checker/get-identity?${params}`,
@@ -196,7 +197,7 @@ export default function Checker() {
     if (!result?.vault_address || !account) return;
     
     // TODO: Implement claim logic
-    console.log('Claiming from vault:', result.vault_address);
+    logger.log('Claiming from vault:', result.vault_address);
   }
 
   const getInputLabel = () => {

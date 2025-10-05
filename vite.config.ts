@@ -8,6 +8,10 @@ export default defineConfig({
   },
   server: {
     open: true,
+    ...(process.env.NODE_ENV !== 'production' && {
+      host: true,
+      allowedHosts: ['.trycloudflare.com'],
+    }),
   },
   plugins: [
     react(),

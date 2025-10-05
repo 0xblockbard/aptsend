@@ -1,10 +1,10 @@
-// hooks/useEVMChannel.ts
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { AccountAddress } from '@aptos-labs/ts-sdk';
 import { useAccount, useSignMessage, useDisconnect } from 'wagmi';
 import { verifyMessage } from 'viem';
 import { evmApi } from '@/services/evmApi';
 import { EVMIdentity, SyncResult } from '@/types/channelTypes';
+import { logger } from '../utils/logger';
 
 interface UseEVMChannelProps {
   ownerAddress: AccountAddress | undefined;
@@ -125,7 +125,7 @@ export function useEVMChannel({
 
   const unsync = useCallback(async (accountId: string): Promise<void> => {
     // TODO: Implement unsync API call
-    console.log('Unsync EVM account:', accountId);
+    logger.log('Unsync EVM account:', accountId);
     await onIdentitiesChange();
   }, [onIdentitiesChange]);
 

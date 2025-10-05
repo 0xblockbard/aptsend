@@ -1,4 +1,3 @@
-// src/providers/EVMWalletProvider.tsx
 import { createAppKit } from '@reown/appkit/react'
 import { WagmiProvider } from 'wagmi'
 import { mainnet, arbitrum, polygon, base } from 'wagmi/chains'

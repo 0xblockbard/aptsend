@@ -1,6 +1,7 @@
 import { AccountAddress } from "@aptos-labs/ts-sdk";
 import { AllIdentitiesResponse } from "../types/channelTypes";
 import { API_BASE_URL } from "@/constants";
+import { logger } from '../utils/logger';
 
 /**
  * Fetches all channel identities for a given owner address
@@ -21,6 +22,6 @@ export async function getAllIdentities(
   }
 
   const data = await response.json();
-  console.log("all identities: ", data);
+  logger.log("all identities: ", data);
   return data;
 }

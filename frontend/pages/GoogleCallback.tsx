@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { logger } from '../utils/logger';
 
 export default function GoogleCallback() {
   const [searchParams] = useSearchParams();
@@ -30,7 +31,7 @@ export default function GoogleCallback() {
 
     if (code && state) {
       if (window.opener) {
-        console.log('Sending callback to parent:', { code, state });
+        logger.log('Sending callback to parent:', { code, state });
         window.opener.postMessage(
           { type: 'GOOGLE_OAUTH_CALLBACK', code, state },
           window.location.origin

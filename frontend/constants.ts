@@ -9,3 +9,4 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 // export const API_BASE_URL = "https://hostilely-unmarkable-opal.ngrok-free.dev/api";
 
 export const REOWN_PROJECT_ID = import.meta.env.VITE_REOWN_PROJECT_ID;
+export const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME;

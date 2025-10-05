@@ -1,10 +1,11 @@
 import { InputTransactionData } from "@aptos-labs/wallet-adapter-react";
 import { MODULE_ADDRESS, MODULE_NAME, APT_DECIMALS } from "../constants";
+import { logger } from '../utils/logger';
 
 // Convert APT amount to octas (smallest unit)
 function aptToOctas(amount: string): number {
   const result = Math.floor(parseFloat(amount) * Math.pow(10, APT_DECIMALS));
-  console.log(`Converting ${amount} APT to ${result} octas`);
+  logger.log(`Converting ${amount} APT to ${result} octas`);
   return result;
 }
 
@@ -20,10 +21,10 @@ export async function depositToVault(
     },
   };
   
-  console.log("=== DEPOSIT TRANSACTION ===");
-  console.log("Amount:", amount);
-  console.log("Amount in octas:", amountInOctas);
-  console.log("Full transaction object:", JSON.stringify(transaction, null, 2));
+  logger.log("=== DEPOSIT TRANSACTION ===");
+  logger.log("Amount:", amount);
+  logger.log("Amount in octas:", amountInOctas);
+  logger.log("Full transaction object:", JSON.stringify(transaction, null, 2));
   
   return transaction;
 }
@@ -41,12 +42,12 @@ export async function withdrawFromVault(
     },
   };
   
-  console.log("=== WITHDRAW TRANSACTION ===");
-  console.log("To Address:", toAddress);
-  console.log("Amount:", amount);
-  console.log("Amount in octas:", amountInOctas);
-  console.log("Module function:", `${MODULE_ADDRESS}::${MODULE_NAME}::withdraw_from_primary_vault`);
-  console.log("Full transaction object:", JSON.stringify(transaction, null, 2));
+  logger.log("=== WITHDRAW TRANSACTION ===");
+  logger.log("To Address:", toAddress);
+  logger.log("Amount:", amount);
+  logger.log("Amount in octas:", amountInOctas);
+  logger.log("Module function:", `${MODULE_ADDRESS}::${MODULE_NAME}::withdraw_from_primary_vault`);
+  logger.log("Full transaction object:", JSON.stringify(transaction, null, 2));
   
   return transaction;
 }
@@ -65,11 +66,11 @@ export async function depositFAToVault(
     },
   };
   
-  console.log("=== DEPOSIT FA TRANSACTION ===");
-  console.log("FA Metadata:", faMetadataAddress);
-  console.log("Amount:", amount);
-  console.log("Amount in smallest unit:", amountInSmallestUnit);
-  console.log("Full transaction object:", JSON.stringify(transaction, null, 2));
+  logger.log("=== DEPOSIT FA TRANSACTION ===");
+  logger.log("FA Metadata:", faMetadataAddress);
+  logger.log("Amount:", amount);
+  logger.log("Amount in smallest unit:", amountInSmallestUnit);
+  logger.log("Full transaction object:", JSON.stringify(transaction, null, 2));
   
   return transaction;
 }
@@ -89,11 +90,11 @@ export async function withdrawFAFromVault(
     },
   };
   
-  console.log("=== WITHDRAW FA TRANSACTION ===");
-  console.log("FA Metadata:", faMetadataAddress);
-  console.log("To Address:", toAddress);
-  console.log("Amount:", amount);
-  console.log("Full transaction object:", JSON.stringify(transaction, null, 2));
+  logger.log("=== WITHDRAW FA TRANSACTION ===");
+  logger.log("FA Metadata:", faMetadataAddress);
+  logger.log("To Address:", toAddress);
+  logger.log("Amount:", amount);
+  logger.log("Full transaction object:", JSON.stringify(transaction, null, 2));
   
   return transaction;
 }
@@ -117,12 +118,12 @@ export async function sendFromPrimaryVault(
     },
   };
 
-  console.log("=== SEND APT TRANSACTION ===");
-  console.log("To Channel:", toChannel);
-  console.log("To User ID:", toUserId);
-  console.log("Amount:", amount);
-  console.log("Amount in octas:", amountInOctas);
-  console.log("Full transaction object:", JSON.stringify(transaction, null, 2));
+  logger.log("=== SEND APT TRANSACTION ===");
+  logger.log("To Channel:", toChannel);
+  logger.log("To User ID:", toUserId);
+  logger.log("Amount:", amount);
+  logger.log("Amount in octas:", amountInOctas);
+  logger.log("Full transaction object:", JSON.stringify(transaction, null, 2));
 
   return transaction;
 }
@@ -148,13 +149,13 @@ export async function sendFAFromPrimaryVault(
     },
   };
 
-  console.log("=== SEND FA TRANSACTION ===");
-  console.log("To Channel:", toChannel);
-  console.log("To User ID:", toUserId);
-  console.log("FA Metadata:", faMetadataAddress);
-  console.log("Amount:", amount);
-  console.log("Amount in smallest unit:", amountInSmallestUnit);
-  console.log("Full transaction object:", JSON.stringify(transaction, null, 2));
+  logger.log("=== SEND FA TRANSACTION ===");
+  logger.log("To Channel:", toChannel);
+  logger.log("To User ID:", toUserId);
+  logger.log("FA Metadata:", faMetadataAddress);
+  logger.log("Amount:", amount);
+  logger.log("Amount in smallest unit:", amountInSmallestUnit);
+  logger.log("Full transaction object:", JSON.stringify(transaction, null, 2));
 
   return transaction;
 }
@@ -180,17 +181,17 @@ export async function waitForTransaction(txHash: string): Promise<boolean> {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          console.log(`Transaction confirmed: ${txHash}`);
+          logger.log(`Transaction confirmed: ${txHash}`);
           return true;
         }
       }
     } catch (error) {
-      console.log(`Waiting for transaction confirmation... (${i + 1}/${maxAttempts})`);
+      logger.log(`Waiting for transaction confirmation... (${i + 1}/${maxAttempts})`);
     }
     
     await new Promise(resolve => setTimeout(resolve, delayMs));
   }
   
-  console.log(`⚠️ Transaction confirmation timeout: ${txHash}`);
+  logger.log(`⚠️ Transaction confirmation timeout: ${txHash}`);
   return false;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { AccountAddress } from '@aptos-labs/ts-sdk';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 import { 
@@ -8,20 +8,15 @@ import {
 } from '../services/googleApi';
 import { 
   GoogleIdentity, 
+  UseGoogleChannelReturn,
   SyncResult 
 } from '../types/channelTypes';
+import { logger } from '../utils/logger';
 
 interface UseGoogleChannelProps {
   ownerAddress: AccountAddress | undefined;
   googleIdentities: GoogleIdentity[];
   onIdentitiesChange: () => Promise<void>;
-}
-
-interface UseGoogleChannelReturn {
-  accounts: GoogleIdentity[];
-  isLoading: boolean;
-  sync: () => Promise<SyncResult>;
-  unsync: (accountId: string) => Promise<void>;
 }
 
 export function useGoogleChannel({
@@ -32,9 +27,9 @@ export function useGoogleChannel({
   const [isLoading, setIsLoading] = useState(false);
 
   const completeAuth = useCallback(async (code: string, state: string) => {
-    console.log('=== COMPLETE AUTH CALLED ===');
-    console.log('Code:', code);
-    console.log('State:', state);
+    logger.log('=== COMPLETE AUTH CALLED ===');
+    logger.log('Code:', code);
+    logger.log('State:', state);
     
     const timeoutId = sessionStorage.getItem('google_auth_timeout');
     if (timeoutId) {
@@ -43,7 +38,7 @@ export function useGoogleChannel({
     }
     
     const codeVerifier = sessionStorage.getItem('google_code_verifier');
-    console.log('Code verifier from storage:', codeVerifier ? 'Found' : 'NOT FOUND');
+    logger.log('Code verifier from storage:', codeVerifier ? 'Found' : 'NOT FOUND');
     
     if (!codeVerifier) {
       console.error('No code verifier in sessionStorage!');
@@ -52,9 +47,9 @@ export function useGoogleChannel({
     }
 
     try {
-      console.log('Calling handleGoogleCallback...');
+      logger.log('Calling handleGoogleCallback...');
       await handleGoogleCallback(code, state, codeVerifier);
-      console.log('Callback successful, reloading identities...');
+      logger.log('Callback successful, reloading identities...');
       await onIdentitiesChange();
     } catch (error) {
       console.error('Google callback error:', error);
@@ -65,42 +60,8 @@ export function useGoogleChannel({
     }
   }, [onIdentitiesChange]);
 
-  useEffect(() => {
-    const handleMessage = async (event: MessageEvent) => {
-      console.log('=== MESSAGE RECEIVED ===');
-      console.log('Origin:', event.origin);
-      console.log('Expected origin:', window.location.origin);
-      console.log('Message data:', event.data);
-      
-      if (event.origin !== window.location.origin) {
-        console.warn('Origin mismatch, ignoring message');
-        return;
-      }
-
-      if (event.data.type === 'GOOGLE_OAUTH_CALLBACK') {
-        console.log('Google OAuth callback message detected!');
-        const { code, state } = event.data;
-        try {
-          await completeAuth(code, state);
-        } catch (error) {
-          console.error('Failed to complete auth:', error);
-        }
-      } else if (event.data.type === 'GOOGLE_OAUTH_ERROR') { 
-        console.error('OAuth error from popup:', event.data.error);
-        setIsLoading(false);
-      }
-    };
-
-    console.log('Setting up message listener...');
-    window.addEventListener('message', handleMessage);
-    return () => {
-      console.log('Removing message listener...');
-      window.removeEventListener('message', handleMessage);
-    };
-  }, [completeAuth]);
-
   const sync = async (): Promise<SyncResult> => {
-    console.log('=== SYNC STARTED ===');
+    logger.log('=== SYNC STARTED ===');
     
     if (!ownerAddress) {
       console.error('No wallet connected');
@@ -110,26 +71,26 @@ export function useGoogleChannel({
     try {
       setIsLoading(true);
       
-      console.log('1. Generating PKCE codes...');
+      logger.log('1. Generating PKCE codes...');
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = await generateCodeChallenge(codeVerifier);
-      console.log('PKCE generated:', { 
+      logger.log('PKCE generated:', { 
         verifier_length: codeVerifier.length,
         challenge_length: codeChallenge.length 
       });
 
       sessionStorage.setItem('google_code_verifier', codeVerifier);
 
-      console.log('2. Calling backend for auth URL...');
-      console.log('Request payload:', {
+      logger.log('2. Calling backend for auth URL...');
+      logger.log('Request payload:', {
         owner_address: ownerAddress.toString(),
         code_challenge: codeChallenge
       });
 
       const response = await getGoogleAuthUrl(ownerAddress, codeChallenge);
-      console.log('3. Auth URL received:', response);
+      logger.log('3. Auth URL received:', response);
 
-      console.log('4. Opening popup...');
+      logger.log('4. Opening popup...');
       const popup = window.open(
         response.auth_url,
         'google-oauth',
@@ -142,21 +103,35 @@ export function useGoogleChannel({
         return { success: false, error: 'Popup blocked' };
       }
 
-      console.log('5. Popup opened successfully');
-      console.log('Auth URL:', response.auth_url);
+      return new Promise<SyncResult>((resolve) => {
+        const handleMessage = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return;
 
-      const abandonmentTimeout = setTimeout(() => {
-        if (popup && !popup.closed) {
-          popup.close();
-        }
-        console.log('Auth timeout - user may have abandoned the flow');
-        setIsLoading(false);
-        sessionStorage.removeItem('google_code_verifier');
-      }, 5 * 60 * 1000);
+          if (event.data.type === 'GOOGLE_OAUTH_CALLBACK') {
+            window.removeEventListener('message', handleMessage);
+            clearTimeout(abandonmentTimeout);
+            
+            completeAuth(event.data.code, event.data.state)
+              .then(() => resolve({ success: true }))
+              .catch((error) => resolve({ success: false, error: error.message }));
+          } else if (event.data.type === 'GOOGLE_OAUTH_ERROR') {
+            window.removeEventListener('message', handleMessage);
+            clearTimeout(abandonmentTimeout);
+            resolve({ success: false, error: event.data.error });
+          }
+        };
 
-      sessionStorage.setItem('google_auth_timeout', abandonmentTimeout.toString());
+        const abandonmentTimeout = setTimeout(() => {
+          window.removeEventListener('message', handleMessage);
+          if (popup && !popup.closed) popup.close();
+          sessionStorage.removeItem('google_code_verifier');
+          setIsLoading(false);
+          resolve({ success: false, error: 'Authentication timeout' });
+        }, 5 * 60 * 1000);
 
-      return { success: true };
+        window.addEventListener('message', handleMessage);
+      });
+
     } catch (error) {
       console.error('=== SYNC FAILED ===');
       console.error('Error details:', error);

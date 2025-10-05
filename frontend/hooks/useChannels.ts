@@ -5,16 +5,19 @@ import { getAllIdentities } from '../services/channelApi';
 import { useTwitterChannel } from './useTwitterChannel';
 import { useEVMChannel } from './useEVMChannel';
 import { useGoogleChannel } from './useGoogleChannel';
+import { useTelegramChannel } from './useTelegramChannel';
 import { 
   ChannelIdentity, 
   ChannelType,
   TwitterIdentity,
+  TelegramIdentity,
   GoogleIdentity,
   SyncResult,
   EVMIdentity
 } from '../types/channelTypes';
 
 import { MODULE_ADDRESS, NETWORK } from "@/constants";
+import { logger } from '../utils/logger';
 
 const aptosConfig = new AptosConfig({ network: NETWORK as Network });
 const aptos = new Aptos(aptosConfig);
@@ -42,7 +45,7 @@ async function checkPrimaryVaultOnChain(ownerAddress: string): Promise<string | 
     
     return result[0] as string;
   } catch (error) {
-    console.log('No primary vault found on-chain yet');
+    logger.log('No primary vault found on-chain yet');
     return null;
   }
 }
@@ -58,7 +61,7 @@ async function waitForVaultOnChain(
     const vaultAddress = await checkPrimaryVaultOnChain(ownerAddress);
     
     if (vaultAddress) {
-      console.log('Vault found on-chain:', vaultAddress);
+      logger.log('Vault found on-chain:', vaultAddress);
       return vaultAddress;
     }
     
@@ -118,15 +121,20 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
     return (identities.google || []) as GoogleIdentity[];
   }, [identities]);
 
-  // const googleIdentities = useMemo(() => {
-  //   const google = (identities.google || []) as GoogleIdentity[];
-  //   console.log('Google identities:', google);
-  //   return google;
-  // }, [identities]);
-
   const google = useGoogleChannel({
     ownerAddress,
     googleIdentities,
+    onIdentitiesChange: loadAllIdentities
+  });
+
+  // Telegram Identity and Channel
+  const telegramIdentities = useMemo(() => {
+    return (identities.telegram || []) as TelegramIdentity[];
+  }, [identities]);
+
+  const telegram = useTelegramChannel({
+    ownerAddress,
+    telegramIdentities,
     onIdentitiesChange: loadAllIdentities
   });
 
@@ -152,11 +160,11 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
 
     // Only check blockchain if user doesn't have a vault yet
     if (!primaryVaultAddress) {
-      console.log('New user detected. Checking blockchain for vault creation...');
+      logger.log('New user detected. Checking blockchain for vault creation...');
       const vaultAddress = await waitForVaultOnChain(ownerAddress.toString());
       
       if (vaultAddress) {
-        console.log('✅ Vault found on-chain:', vaultAddress);
+        logger.log('✅ Vault found on-chain:', vaultAddress);
         // Set it immediately from blockchain - this is the source of truth
         setPrimaryVaultAddress(vaultAddress);
       } else {
@@ -178,7 +186,10 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
         return handlePostSync(result);
       }
       
-      case 'telegram':
+      case 'telegram': {
+        const result = await telegram.sync();
+        return handlePostSync(result);
+      }
 
       case 'google': {
         const result = await google.sync();
