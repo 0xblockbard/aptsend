@@ -1,4 +1,3 @@
-// pages/Dashboard.tsx
 import { useState, useEffect } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import VaultCard from "../components/ui/dashboard/VaultCard";

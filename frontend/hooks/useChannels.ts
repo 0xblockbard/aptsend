@@ -7,11 +7,13 @@ import { useEVMChannel } from './useEVMChannel';
 import { useSolanaChannel } from './useSolanaChannel';
 import { useGoogleChannel } from './useGoogleChannel';
 import { useTelegramChannel } from './useTelegramChannel';
+import { useDiscordChannel } from './useDiscordChannel';
 import { 
   ChannelIdentity, 
   ChannelType,
   TwitterIdentity,
   TelegramIdentity,
+  DiscordIdentity,
   GoogleIdentity,
   SyncResult,
   EVMIdentity,
@@ -162,6 +164,17 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
     onIdentitiesChange: loadAllIdentities
   });
 
+  // Discord Identity and Channel
+  const discordIdentities = useMemo(() => {
+    return (identities.discord || []) as DiscordIdentity[];
+  }, [identities]);
+
+  const discord = useDiscordChannel({
+    ownerAddress,
+    discordIdentities,
+    onIdentitiesChange: loadAllIdentities
+  });
+
 
   /**
    * Handle post-sync logic: check for vault if needed, then reload identities
@@ -209,7 +222,10 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
         return handlePostSync(result);
       }
 
-      case 'discord':
+      case 'discord': {
+        const result = await discord.sync();
+        return handlePostSync(result);
+      }
 
       case 'evm': {
         const result = await evm.sync();

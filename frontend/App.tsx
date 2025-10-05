@@ -9,6 +9,7 @@ import Checker from "./pages/Checker";
 import Send from "./pages/Send";
 import TwitterCallback from "./pages/TwitterCallback";
 import GoogleCallback from "./pages/GoogleCallback";
+import DiscordCallback from "./pages/DiscordCallback";
 
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
@@ -38,6 +39,7 @@ export default function App() {
           
           <Route path="/auth/twitter/callback" element={<TwitterCallback />} />
           <Route path="/auth/google/callback" element={<GoogleCallback />} />
+          <Route path="/auth/discord/callback" element={<DiscordCallback />} />
 
         </Routes>
          <Footer />

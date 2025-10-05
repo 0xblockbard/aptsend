@@ -136,6 +136,28 @@ export interface TelegramCallbackResponse {
   };
 }
 
+
+export interface DiscordAuthUrlResponse {
+  auth_url: string;
+  state: string;
+}
+
+export interface DiscordCallbackResponse {
+  success: boolean;
+  identity: {
+    id: string;
+    channel: string;
+    channel_user_id: string;
+    vault_status: number;
+    metadata: {
+      username: string;
+      discriminator?: string;
+      avatar?: string;
+      global_name?: string;  // Discord's display name
+    };
+  };
+}
+
 // ============================================================================
 // Hook Return Types
 // ============================================================================
@@ -157,7 +179,7 @@ export interface UseSingleChannelReturn<T extends ChannelIdentity> {
 export type UseTwitterChannelReturn = UseSingleChannelReturn<TwitterIdentity>;
 export type UseGoogleChannelReturn = UseSingleChannelReturn<GoogleIdentity>;
 export type UseTelegramChannelReturn = UseSingleChannelReturn<TelegramIdentity>;
-// export type UseDiscordChannelReturn = UseSingleChannelReturn<DiscordIdentity>;
+export type UseDiscordChannelReturn = UseSingleChannelReturn<DiscordIdentity>;
 // export type UseEVMChannelReturn = UseSingleChannelReturn<EVMIdentity>;
 export type UseSolanaChannelReturn = UseSingleChannelReturn<SolanaIdentity>;
 
@@ -177,3 +199,6 @@ export interface Channel {
   iconSource: string | React.ComponentType<{ className?: string }>;
   accounts: ChannelIdentity[];
 }
+
+
+
