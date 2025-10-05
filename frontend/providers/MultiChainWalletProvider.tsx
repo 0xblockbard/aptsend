@@ -13,7 +13,7 @@ import {
   solanaTestnet,
   solanaDevnet,
 } from "@reown/appkit/networks";
-import type { AppKitNetwork } from "@reown/appkit/types";
+import type { AppKitNetwork } from "@reown/appkit/networks";
 
 if (!REOWN_PROJECT_ID) {
   throw new Error('VITE_REOWN_PROJECT_ID is not set')
