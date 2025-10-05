@@ -109,8 +109,8 @@ function ConnectWalletDialog({ close }: ConnectWalletDialogProps) {
 
         {hasAptosConnectWallets && (
           <div className="flex flex-col gap-2 pt-3">
-            {aptosConnectWallets.map((wallet) => (
-              <AptosConnectWalletRow key={wallet.name} wallet={wallet} onConnect={close} />
+            {aptosConnectWallets.map((wallet, index) => (
+              <AptosConnectWalletRow key={`aptos-connect-${index}`} wallet={wallet} onConnect={close} />
             ))}
             <p className="flex gap-1 justify-center items-center text-muted-foreground text-sm">
               Learn more about{" "}
@@ -135,8 +135,8 @@ function ConnectWalletDialog({ close }: ConnectWalletDialogProps) {
         )}
 
         <div className="flex flex-col gap-3 pt-3">
-          {availableWallets.map((wallet) => (
-            <WalletRow key={wallet.name} wallet={wallet} onConnect={close} />
+          {availableWallets.map((wallet, index) => (
+            <WalletRow key={`available-${index}`} wallet={wallet} onConnect={close} />
           ))}
           {!!installableWallets.length && (
             <Collapsible className="flex flex-col gap-3">
@@ -146,8 +146,8 @@ function ConnectWalletDialog({ close }: ConnectWalletDialogProps) {
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="flex flex-col gap-3">
-                {installableWallets.map((wallet) => (
-                  <WalletRow key={wallet.name} wallet={wallet} onConnect={close} />
+                {installableWallets.map((wallet, index) => (
+                  <WalletRow key={`installable-${index}`} wallet={wallet} onConnect={close} />
                 ))}
               </CollapsibleContent>
             </Collapsible>

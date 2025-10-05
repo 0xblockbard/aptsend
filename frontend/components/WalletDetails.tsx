@@ -5,6 +5,9 @@ import { LabelValueGrid } from "@/components/LabelValueGrid";
 export function WalletDetails() {
   const { wallet } = useWallet();
   
+  // Type assertion to access properties
+  const walletWithInfo = wallet as any;
+  
   return (
     <div className="flex flex-col gap-6">
       <h4 className="text-lg font-medium">Wallet Details</h4>
@@ -12,10 +15,10 @@ export function WalletDetails() {
         items={[
           {
             label: "Icon",
-            value: wallet?.icon ? (
+            value: walletWithInfo?.icon ? (
               <img 
-                src={wallet.icon} 
-                alt={wallet.name || "Wallet"} 
+                src={walletWithInfo.icon} 
+                alt={walletWithInfo.name || "Wallet"} 
                 width={24} 
                 height={24} 
               />
@@ -25,18 +28,18 @@ export function WalletDetails() {
           },
           {
             label: "Name",
-            value: <p>{wallet?.name ?? "Not Present"}</p>,
+            value: <p>{walletWithInfo?.name ?? "Not Present"}</p>,
           },
           {
             label: "URL",
-            value: wallet?.url ? (
+            value: walletWithInfo?.url ? (
               <a 
-                href={wallet.url} 
+                href={walletWithInfo.url} 
                 target="_blank" 
                 rel="noreferrer" 
                 className="text-blue-600 dark:text-blue-300"
               >
-                {wallet.url}
+                {walletWithInfo.url}
               </a>
             ) : (
               "Not Present"
