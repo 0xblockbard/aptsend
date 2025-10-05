@@ -6,7 +6,7 @@ import { VaultBalanceProvider } from "./contexts/VaultBalanceContext";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Checker from "./pages/Checker";
-import Send from "./pages/Send";
+import Sender from "./pages/Sender";
 import TwitterCallback from "./pages/TwitterCallback";
 import GoogleCallback from "./pages/GoogleCallback";
 import DiscordCallback from "./pages/DiscordCallback";
@@ -34,7 +34,7 @@ export default function App() {
             }
           />
           <Route path="/checker" element={<Checker />} />
-          <Route path="/send" element={<Send />} />
+          <Route path="/send" element={<Sender />} />
           <Route path="*" element={<Navigate to="/" replace />} />
           
           <Route path="/auth/twitter/callback" element={<TwitterCallback />} />

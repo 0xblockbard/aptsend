@@ -2,8 +2,14 @@ import { useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 import { ChannelType } from "@/types/channelTypes";
-import { API_BASE_URL, MODULE_ADDRESS, NETWORK } from "@/constants";
-import { logger } from '../utils/logger';
+import { MODULE_ADDRESS, NETWORK } from "@/constants";
+import {
+  validateIdentifier,
+  resolveChannelUserId,
+  getIdentifierLabel,
+  getIdentifierPlaceholder,
+  getChannelDisplayName
+} from '../utils/channelUtils';
 
 interface CheckResult {
   eligible: boolean;
@@ -39,32 +45,17 @@ export default function Checker() {
     setSearchedIdentifier(identifier.trim());
     setSearchedChannel(channel);
 
+    // Validate identifier format
+    const validation = validateIdentifier(channel, identifier);
+    if (!validation.valid) {
+      setError(validation.error || "Invalid identifier");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const params = new URLSearchParams({
-        channel,
-        identifier: identifier.trim()
-      });
-
-      logger.log('Sending request with:', { channel, identifier: identifier.trim() });
-
-      const backendResponse = await fetch(
-        `${API_BASE_URL}/checker/get-identity?${params}`,
-        {
-          method: 'GET',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        }
-      );
-
-      const backendData = await backendResponse.json();
-
-      if (!backendResponse.ok || !backendData.success) {
-        throw new Error(backendData.message || 'Failed to resolve identifier');
-      }
-
-      const channelUserId = backendData.channel_user_id;
+      // Resolve identifier to channel_user_id
+      const channelUserId = await resolveChannelUserId(channel, identifier);
 
       const routeExists = await checkRouteExists(channel, channelUserId);
       
@@ -193,50 +184,6 @@ export default function Checker() {
   //   }
   // }
 
-  const getInputLabel = () => {
-    switch (channel) {
-      case 'twitter':
-        return 'Username';
-      case 'telegram':
-        return 'Handle';
-      case 'discord':
-        return 'Username';
-      case 'google':
-        return 'Email';
-      case 'evm':
-        return 'EVM Wallet Address';
-      case 'sol':
-        return 'Solana Wallet Address';
-      default:
-        return 'Identifier';
-    }
-  };
-
-  const getPlaceholder = () => {
-    switch (channel) {
-      case 'twitter': return 'e.g. aptos (no @)';
-      case 'telegram': return 'e.g. handle';
-      case 'google': return 'e.g. user@gmail.com';
-      case 'discord': return 'e.g. username#1234';
-      case 'evm': return 'e.g. 0xABC...';
-      default: return 'Enter identifier';
-    }
-  };
-
-  const getChannelDisplayName = () => {
-    switch (searchedChannel) {
-      case 'twitter': return 'Twitter / X';
-      case 'telegram': return 'Telegram';
-      case 'google': return 'Email';
-      case 'discord': return 'Discord';
-      case 'evm': return 'Ethereum / EVM';
-      default: {
-        const channel = searchedChannel as string;
-        return channel.charAt(0).toUpperCase() + channel.slice(1);
-      }
-    }
-  };
-
   return (
     <div className="min-h-screen mx-auto max-w-2xl px-6 py-10">
       <h1 className="text-2xl font-semibold">Checker</h1>
@@ -268,12 +215,12 @@ export default function Checker() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            {getInputLabel()}
+            {getIdentifierLabel(channel)}
           </label>
           <input
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            placeholder={getPlaceholder()}
+            placeholder={getIdentifierPlaceholder(channel)}
             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
             required
           />
@@ -299,7 +246,7 @@ export default function Checker() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="text-sm font-medium text-gray-500">
-                {getChannelDisplayName()}
+                {getChannelDisplayName(searchedChannel)}
               </div>
               <div className="text-base font-semibold break-all">{searchedIdentifier}</div>
             </div>
