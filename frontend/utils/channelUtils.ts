@@ -43,11 +43,10 @@ export const validateIdentifier = (
     case 'twitter':
     case 'telegram':
     case 'discord':
-      if (trimmed.length === 0) {
+      // Strip @ symbol before validating length
+      const cleanedHandle = trimmed.replace(/^@+/, '');
+      if (cleanedHandle.length === 0) {
         return { valid: false, error: 'Please enter a username' };
-      }
-      if (trimmed.startsWith('@')) {
-        return { valid: false, error: 'Please enter username without @ symbol' };
       }
       break;
   }
@@ -65,7 +64,13 @@ export const resolveChannelUserId = async (
   channel: ChannelType,
   identifier: string
 ): Promise<string> => {
-  const trimmedIdentifier = identifier.trim();
+  let trimmedIdentifier = identifier.trim();
+
+  // Strip "@" symbol for social platforms (twitter, telegram, discord)
+  if (channel === 'twitter' || channel === 'telegram' || channel === 'discord') {
+    trimmedIdentifier = trimmedIdentifier.replace(/^@+/, ''); // Remove one or more @ symbols from the start
+    logger.log('Stripped @ symbol from identifier:', { original: identifier, cleaned: trimmedIdentifier });
+  }
 
   // For EVM, Solana, and Email, the identifier IS the channel_user_id
   if (!needsBackendResolution(channel)) {
@@ -128,13 +133,13 @@ export const getIdentifierLabel = (channel: ChannelType): string => {
 export const getIdentifierPlaceholder = (channel: ChannelType): string => {
   switch (channel) {
     case 'twitter':
-      return 'e.g. aptos (no @)';
+      return 'e.g. @aptos';
     case 'telegram':
-      return 'e.g. handle';
+      return 'e.g. @handle';
     case 'google':
       return 'e.g. user@gmail.com';
     case 'discord':
-      return 'e.g. username#1234';
+      return 'e.g. @username';
     case 'evm':
       return 'e.g. 0xABC...';
     case 'sol':
