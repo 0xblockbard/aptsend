@@ -1,5 +1,5 @@
 import LinkedAccountItem from "./LinkedAccountItem";
-import { EVMChannelRow } from "./EVMChannelRow";
+import { MultiChainChannelRow } from "./MultiChainChannelRow";
 import { Channel, EVMIdentity } from "@/types/channelTypes";
 
 interface ChannelCardProps {
@@ -19,6 +19,7 @@ export default function ChannelCard({
 }: ChannelCardProps) {
   const hasAccounts = channel.accounts.length > 0;
   const isEVM = channel.type === 'evm';
+  const isSol = channel.type === 'sol';
   
   return (
     <div className="rounded-lg border border-gray-200 bg-white shadow-sm transition-all">
@@ -56,8 +57,9 @@ export default function ChannelCard({
         {(() => {
           switch (channel.type) {
             case 'evm':
-              return <EVMChannelRow onSuccess={onSync} />;
-            // Future: case 'solana': return <SolanaChannelRow onSuccess={onSync} />;
+              return <MultiChainChannelRow channelType="evm" onSuccess={onSync} />;
+            case 'sol':
+              return <MultiChainChannelRow channelType="sol" onSuccess={onSync} />;
             default:
               return (
                 <button
@@ -78,8 +80,8 @@ export default function ChannelCard({
         />
       </div>
 
-      {/* EVM channel renders differently based on connection state */}
-      {isEVM ? (
+      {/* EVM/SOL channel renders differently based on connection state */}
+      {isEVM || isSol ? (
         <div 
           className="overflow-hidden transition-all duration-300 ease-in-out"
           style={{ 
@@ -98,7 +100,6 @@ export default function ChannelCard({
                       className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm"
                     >
                       <div className="flex flex-col">
-                        
                         <span className="font-medium font-mono text-sm">
                           {evmAccount.metadata?.address?.slice(0, 6)}...{evmAccount.metadata?.address?.slice(-4)}
                         </span>

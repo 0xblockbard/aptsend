@@ -2,7 +2,7 @@
 // Channel Types
 // ============================================================================
 
-export type ChannelType = "twitter" | "telegram" | "google" | "discord" | "evm";
+export type ChannelType = "twitter" | "telegram" | "google" | "discord" | "evm" | "sol";
 export type ChannelStatus = "pending" | "linked" | "failed";
 
 // ============================================================================
@@ -58,6 +58,13 @@ export interface EVMIdentity extends ChannelIdentity {
     chain_id: number;
     chain_name: string;
     ens_name?: string;
+  };
+}
+
+export interface SolanaIdentity extends ChannelIdentity {
+  metadata?: {
+    address: string;
+    sns_name?: string; // Solana Name Service (like ENS for Ethereum)
   };
 }
 
@@ -152,6 +159,7 @@ export type UseGoogleChannelReturn = UseSingleChannelReturn<GoogleIdentity>;
 export type UseTelegramChannelReturn = UseSingleChannelReturn<TelegramIdentity>;
 // export type UseDiscordChannelReturn = UseSingleChannelReturn<DiscordIdentity>;
 // export type UseEVMChannelReturn = UseSingleChannelReturn<EVMIdentity>;
+export type UseSolanaChannelReturn = UseSingleChannelReturn<SolanaIdentity>;
 
 export interface UseChannelsReturn {
   identities: Record<string, ChannelIdentity[]>;

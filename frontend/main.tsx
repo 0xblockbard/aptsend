@@ -9,7 +9,7 @@ import App from "@/App.tsx";
 // Internal components
 import { Toaster } from "@/components/ui/toaster.tsx";
 import { WalletProvider } from "@/components/WalletProvider.tsx";
-import { EVMWalletProvider } from "@/providers/EVMWalletProvider.tsx";
+import { MultiChainWalletProvider } from "@/providers/MultiChainWalletProvider";
 import { WrongNetworkAlert } from "@/components/WrongNetworkAlert";
 
 const queryClient = new QueryClient();
@@ -18,11 +18,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
-        <EVMWalletProvider>
+        <MultiChainWalletProvider>
           <App />
           <WrongNetworkAlert />
           <Toaster />
-        </EVMWalletProvider>
+        </MultiChainWalletProvider>
       </WalletProvider>
     </QueryClientProvider>
   </React.StrictMode>,

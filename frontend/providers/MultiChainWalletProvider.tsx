@@ -1,9 +1,19 @@
 import { createAppKit } from '@reown/appkit/react'
 import { WagmiProvider } from 'wagmi'
-import { mainnet, arbitrum, polygon, base } from 'wagmi/chains'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
+import { SolanaAdapter } from '@reown/appkit-adapter-solana'
 import { PropsWithChildren } from 'react'
 import { REOWN_PROJECT_ID } from '@/constants'
+
+import {
+  mainnet,
+  arbitrum,
+  sepolia,
+  solana,
+  solanaTestnet,
+  solanaDevnet,
+} from "@reown/appkit/networks";
+import type { AppKitNetwork } from "@reown/appkit/types";
 
 if (!REOWN_PROJECT_ID) {
   throw new Error('VITE_REOWN_PROJECT_ID is not set')
@@ -16,16 +26,33 @@ const metadata = {
   icons: [`${window.location.origin}/logo.png`]
 }
 
-const networks = [mainnet, arbitrum, polygon, base]
+// Separate EVM and Solana networks with explicit types
+const evmNetworks: [AppKitNetwork, ...AppKitNetwork[]] = [mainnet, arbitrum, sepolia]
 
+// All networks for AppKit - explicitly typed
+const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
+  mainnet,
+  arbitrum,
+  sepolia,
+  solana,
+  solanaTestnet,
+  solanaDevnet
+]
+
+// Create Wagmi adapter with ONLY EVM networks
 const wagmiAdapter = new WagmiAdapter({
-  networks,
+  networks: evmNetworks,
   projectId: REOWN_PROJECT_ID,
 })
 
+// Create Solana adapter
+const solanaAdapter = new SolanaAdapter({
+  wallets: [] 
+})
+
 createAppKit({
-  adapters: [wagmiAdapter],
-  networks: [mainnet, arbitrum, polygon, base],
+  adapters: [wagmiAdapter, solanaAdapter],
+  networks,
   projectId: REOWN_PROJECT_ID,
   metadata,
   features: {
@@ -38,14 +65,13 @@ createAppKit({
     '163d2cf19babf05eb8962e9748f9ebe613ed52ebf9c8107c9a0f104bfcf161b3', // Frame
   ],
   excludeWalletIds: [
-    "a797aa35c0fadbfc1a53e7f675162ed5226968b44a19ee3d24385c64d1d3c393", // Phantom
     "123e6d19e6c0f575b148c469eb191f8b92618c13c94c4758aee35e042e37fa21", // Compass
     "e0c2e199712878ed272e2c170b585baa0ff0eb50b07521ca586ebf7aeeffc598", // Talisman
     "6adb6082c909901b9e7189af3a4a0223102cd6f8d5c39e39f3d49acb92b578bb", // Keplr
   ],
 })
 
-export function EVMWalletProvider({ children }: PropsWithChildren) {
+export function MultiChainWalletProvider({ children }: PropsWithChildren) {
   return (
     <WagmiProvider config={wagmiAdapter.wagmiConfig}>
       {children}

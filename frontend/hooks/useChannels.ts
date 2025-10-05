@@ -4,6 +4,7 @@ import { AccountAddress, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk'
 import { getAllIdentities } from '../services/channelApi';
 import { useTwitterChannel } from './useTwitterChannel';
 import { useEVMChannel } from './useEVMChannel';
+import { useSolanaChannel } from './useSolanaChannel';
 import { useGoogleChannel } from './useGoogleChannel';
 import { useTelegramChannel } from './useTelegramChannel';
 import { 
@@ -13,7 +14,8 @@ import {
   TelegramIdentity,
   GoogleIdentity,
   SyncResult,
-  EVMIdentity
+  EVMIdentity,
+  SolanaIdentity
 } from '../types/channelTypes';
 
 import { MODULE_ADDRESS, NETWORK } from "@/constants";
@@ -149,6 +151,17 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
     onIdentitiesChange: loadAllIdentities
   });
 
+  // Sol Identity and Channel
+  const solanaIdentities = useMemo(() => {
+    return (identities.sol || []) as SolanaIdentity[];
+  }, [identities]);
+
+  const solana = useSolanaChannel({
+    ownerAddress,
+    solanaIdentities,
+    onIdentitiesChange: loadAllIdentities
+  });
+
 
   /**
    * Handle post-sync logic: check for vault if needed, then reload identities
@@ -198,8 +211,13 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
 
       case 'discord':
 
-      case 'evm':{
+      case 'evm': {
         const result = await evm.sync();
+        return handlePostSync(result);
+      }
+
+      case 'sol': {
+        const result = await solana.sync();
         return handlePostSync(result);
       }
 
@@ -223,7 +241,9 @@ export function useChannels(ownerAddress: AccountAddress | undefined): UseChanne
         case 'discord':
 
       case 'evm':
-        
+        throw new Error(`${channelType} unsync not implemented yet`);
+
+      case 'sol':
         throw new Error(`${channelType} unsync not implemented yet`);
       
       default:

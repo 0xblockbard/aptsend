@@ -1,24 +1,23 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { AccountAddress } from '@aptos-labs/ts-sdk';
-import { useAccount, useSignMessage, useDisconnect } from 'wagmi';
-import { verifyMessage } from 'viem';
-import { evmApi } from '@/services/evmApi';
-import { EVMIdentity, SyncResult } from '@/types/channelTypes';
+import { useAppKitAccount } from '@reown/appkit/react';
+import { useDisconnect as useAppKitDisconnect } from '@reown/appkit/react';
+import { solanaApi } from '@/services/solanaApi';
+import { SolanaIdentity, SyncResult } from '@/types/channelTypes';
 
-interface UseEVMChannelProps {
+interface UseSolanaChannelProps {
   ownerAddress: AccountAddress | undefined;
-  evmIdentities: EVMIdentity[];
+  solanaIdentities: SolanaIdentity[];
   onIdentitiesChange: () => Promise<void>;
 }
 
-export function useEVMChannel({ 
+export function useSolanaChannel({ 
   ownerAddress, 
-  evmIdentities,
+  solanaIdentities,
   onIdentitiesChange 
-}: UseEVMChannelProps) {
-  const { address: evmAddress, chainId, isConnected } = useAccount();
-  const { signMessageAsync } = useSignMessage();
-  const { disconnect } = useDisconnect();
+}: UseSolanaChannelProps) {
+  const { address: solanaAddress, isConnected } = useAppKitAccount();
+  const { disconnect } = useAppKitDisconnect();
   const [isLoading, setIsLoading] = useState(false);
   const [needsSignature, setNeedsSignature] = useState(false);
   const hasTriggeredSync = useRef(false);
@@ -29,7 +28,7 @@ export function useEVMChannel({
   // useEffect(() => {
   //   const justConnected = isConnected && !previousIsConnected.current;
     
-  //   if (justConnected && ownerAddress && evmAddress && !hasTriggeredSync.current && !isSyncing.current) {
+  //   if (justConnected && ownerAddress && solanaAddress && !hasTriggeredSync.current && !isSyncing.current) {
   //     hasTriggeredSync.current = true;
   //     isSyncing.current = true;
   //     setNeedsSignature(false);
@@ -43,7 +42,7 @@ export function useEVMChannel({
   //   }
 
   //   previousIsConnected.current = isConnected;
-  // }, [isConnected, ownerAddress, evmAddress]);
+  // }, [isConnected, ownerAddress, solanaAddress]);
 
   // Reset trigger flag when disconnected
   useEffect(() => {
@@ -59,8 +58,8 @@ export function useEVMChannel({
       return { success: false, error: 'Aptos wallet not connected' };
     }
 
-    if (!evmAddress || !chainId) {
-      return { success: false, error: 'EVM wallet not connected' };
+    if (!solanaAddress) {
+      return { success: false, error: 'Solana wallet not connected' };
     }
 
     if (isSyncing.current) {
@@ -73,28 +72,25 @@ export function useEVMChannel({
 
     try {
       // Generate challenge message
-      const message = `Link EVM wallet to AptSend\n\nAptos Address: ${ownerAddress}\nEVM Address: ${evmAddress}\nChain ID: ${chainId}\nTimestamp: ${Date.now()}`;
+      const message = `Link Solana wallet to AptSend\n\nAptos Address: ${ownerAddress}\nSolana Address: ${solanaAddress}\nTimestamp: ${Date.now()}`;
+      
+      const encodedMessage = new TextEncoder().encode(message);
 
-      // Sign the message
-      const signature = await signMessageAsync({ message });
-
-      // Verify signature using viem
-      const isValid = await verifyMessage({
-        address: evmAddress,
-        message: message,
-        signature: signature,
-      });
-
-      if (!isValid) {
+      // Get the Solana provider from window (Phantom, Solflare, etc.)
+      const provider = (window as any).solana;
+      
+      if (!provider) {
         isSyncing.current = false;
-        return { success: false, error: 'Signature verification failed' };
+        return { success: false, error: 'Solana wallet provider not found' };
       }
 
-      // Send to backend
-      await evmApi.linkWallet({
+      // Sign the message using the Solana wallet (this proves ownership)
+      await provider.signMessage(encodedMessage, 'utf8');
+
+      // Send to backend (signature verification done on frontend by the wallet sign)
+      await solanaApi.linkWallet({
         owner_address: ownerAddress.toString(),
-        evm_address: evmAddress,
-        chain_id: chainId,
+        solana_address: solanaAddress,
       });
 
       // Disconnect wallet after successful link
@@ -108,14 +104,14 @@ export function useEVMChannel({
 
       return { success: true };
     } catch (error: any) {
-      console.error('Failed to link EVM wallet:', error);
+      console.error('Failed to link Solana wallet:', error);
       
       // Check if user rejected/closed the signature request
       const isUserRejection = 
         error.message?.toLowerCase().includes('user rejected') ||
         error.message?.toLowerCase().includes('user denied') ||
         error.message?.toLowerCase().includes('user cancelled') ||
-        error.code === 4001 || // MetaMask rejection code
+        error.code === 4001 ||
         error.code === 'ACTION_REJECTED';
 
       if (isUserRejection) {
@@ -133,21 +129,27 @@ export function useEVMChannel({
       setIsLoading(false);
       isSyncing.current = false;
     }
-  }, [ownerAddress, evmAddress, chainId, signMessageAsync, disconnect, onIdentitiesChange]);
+  }, [ownerAddress, solanaAddress, disconnect, onIdentitiesChange]);
 
   const unsync = useCallback(async (accountId: string): Promise<void> => {
-    // TODO: Implement unsync API call
-    console.log('Unsync EVM account:', accountId);
+    if (!ownerAddress) {
+      throw new Error('Aptos wallet not connected');
+    }
+
+    await solanaApi.unlinkWallet({
+      owner_address: ownerAddress.toString(),
+      identity_id: accountId,
+    });
+
     await onIdentitiesChange();
-  }, [onIdentitiesChange]);
+  }, [ownerAddress, onIdentitiesChange]);
 
   return {
-    accounts: evmIdentities,
+    accounts: solanaIdentities,
     isLoading,
     sync,
     unsync,
-    evmAddress,
-    chainId,
+    solanaAddress,
     isConnected,
     disconnect,
     needsSignature,
