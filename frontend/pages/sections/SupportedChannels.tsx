@@ -70,7 +70,7 @@ export default function SupportedChannels() {
         <div className="mx-auto max-w-2xl lg:mx-0">
           <h2 className="text-5xl font-semibold tracking-tight text-gray-900 sm:text-6xl">Supported Platforms</h2>
           <p className="mt-6 text-lg leading-8 text-gray-600">
-            Send Aptos tokens to anyone using their social media handle or wallet address.
+            Send Aptos tokens to anyone using their social media handle, email, or wallet address.
           </p>
         </div>
 
