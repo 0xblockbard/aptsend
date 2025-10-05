@@ -193,13 +193,6 @@ export default function Checker() {
   //   }
   // }
 
-  async function handleClaim() {
-    if (!result?.vault_address || !account) return;
-    
-    // TODO: Implement claim logic
-    logger.log('Claiming from vault:', result.vault_address);
-  }
-
   const getInputLabel = () => {
     switch (channel) {
       case 'twitter':
@@ -211,7 +204,9 @@ export default function Checker() {
       case 'google':
         return 'Email';
       case 'evm':
-        return 'Wallet Address';
+        return 'EVM Wallet Address';
+      case 'sol':
+        return 'Solana Wallet Address';
       default:
         return 'Identifier';
     }
@@ -267,6 +262,7 @@ export default function Checker() {
             <option value="google">Email</option>
             <option value="discord">Discord</option>
             <option value="evm">Ethereum / EVM</option>
+            <option value="sol">Solana</option>
           </select>
         </div>
 
@@ -363,12 +359,9 @@ export default function Checker() {
           {/* Action section */}
           {result.status === 'temp' && result.eligible ? (
             account ? (
-              <button
-                onClick={handleClaim}
-                className="w-full rounded-md bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700 transition-colors"
-              >
-                Claim to My Wallet
-              </button>
+              <div className="text-center p-3 bg-blue-50 rounded-md text-sm text-gray-700">
+                Connect your wallet and social profile to claim these funds
+              </div>
             ) : (
               <div className="text-center p-3 bg-blue-50 rounded-md text-sm text-gray-700">
                 Connect your wallet and social profile to claim these funds
