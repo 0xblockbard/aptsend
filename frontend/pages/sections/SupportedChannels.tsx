@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-
 type ChannelCard = {
   key: "twitter" | "telegram" | "discord" | "email" | "evm" | "sol";
   name: string;

@@ -22,7 +22,7 @@ export function useEVMChannel({
   const [isLoading, setIsLoading] = useState(false);
   const [needsSignature, setNeedsSignature] = useState(false);
   const hasTriggeredSync = useRef(false);
-  const previousIsConnected = useRef(isConnected);
+  // const previousIsConnected = useRef(isConnected);
   const isSyncing = useRef(false);
 
   // Auto-trigger sync when wallet connects
