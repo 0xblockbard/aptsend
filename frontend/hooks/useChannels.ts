@@ -42,7 +42,7 @@ async function checkPrimaryVaultOnChain(ownerAddress: string): Promise<string | 
   try {
     const result = await aptos.view({
       payload: {
-        function: `${MODULE_ADDRESS}::vault_module::get_primary_vault_for_owner`,
+        function: `${MODULE_ADDRESS}::aptsend::get_primary_vault_for_owner`,
         functionArguments: [ownerAddress],
       },
     });
