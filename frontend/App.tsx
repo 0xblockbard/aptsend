@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer"; 
@@ -12,11 +13,20 @@ import GoogleCallback from "./pages/GoogleCallback";
 import DiscordCallback from "./pages/DiscordCallback";
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
-  const { connected, isLoading } = useWallet();
+  const { connected } = useWallet();
+  const [isChecking, setIsChecking] = useState(true);
   
-  // Wait for wallet adapter to finish checking
-  if (isLoading) {
-    return <div>Loading...</div>; 
+  useEffect(() => {
+    // Give autoConnect time to complete
+    const timer = setTimeout(() => {
+      setIsChecking(false);
+    }, 500); // 500ms
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  if (isChecking) {
+    return null; 
   }
   
   if (!connected) {
