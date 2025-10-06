@@ -11,10 +11,18 @@ import TwitterCallback from "./pages/TwitterCallback";
 import GoogleCallback from "./pages/GoogleCallback";
 import DiscordCallback from "./pages/DiscordCallback";
 
-
 function RouteGuard({ children }: { children: React.ReactNode }) {
-  const { connected } = useWallet();
-  if (!connected) return <Navigate to="/" replace />;
+  const { connected, isLoading } = useWallet();
+  
+  // Wait for wallet adapter to finish checking
+  if (isLoading) {
+    return <div>Loading...</div>; 
+  }
+  
+  if (!connected) {
+    return <Navigate to="/" replace />;
+  }
+  
   return <>{children}</>;
 }
 
