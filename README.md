@@ -8,17 +8,25 @@ AptSend removes friction from crypto payments by letting you send tokens to anyo
 
 This exponentially expands the range of distribution and adoption for Aptos and any Aptos-related projects, as they can now utilise **one-way transfers** to users simply based on their public profile without requiring any knowledge of their wallet address.
 
-> **Key Opportunities:** Exponentially expand the reach of Aptos and Aptos-related projects. Every user on every major social platform is now within reach as a direct channel through a unified interface. Distribution → adoption.
+Every user on every major social platform is now within reach as a direct channel through our unified system. 
+
+**Distribution → Adoption**
 
 ## ✨ Key Features
 
 - Send to **@usernames** on Twitter, Telegram, Discord  
-- Send to **email addresses** or **phone numbers**  
+- Send to **email addresses**
 - Send to **EVM or Solana addresses** (extensible to any blockchain)
-- Send via public posts (tweet to anyone on Twitter) or direct messages (requires bot integration for Telegram/Discord) - coming soon
+- Send via tweets to anyone on any channel
 - Supports APT and any fungible asset on Aptos  
 - **Claimable Vaults**: Recipients without Aptos wallets receive funds in temporary vaults, incentivizing them to create a wallet and claim their assets
 - 0.2% transfer fee for sustainable operations
+
+## ✨ Coming Soon
+
+- Send to phone numbers 
+- Send via Telegram Group
+- Send via Discord Server 
 
 ## 🧠 Why AptSend?
 
@@ -28,6 +36,8 @@ This exponentially expands the range of distribution and adoption for Aptos and 
 - **Marketing loop:** every pending vault is a call-to-action to join Aptos
 
 ## 🏗️ How It Works (In simple terms)
+
+It only takes 2 simple steps for any user to get started on the platform and receive funds, and an additional step if he wishes to send funds to anyone else.
 
 1. User connects aptos wallet **[User Action 1]**
 2. User selects any channel and connect to it with his social profile **[User Action 2]**
@@ -61,94 +71,65 @@ This exponentially expands the range of distribution and adoption for Aptos and 
 - **Channel Routing**: Maps social channel identities to vault addresses
 - **Transfers**: P2P transfers with configurable fees, supports cross-channel routing
 
-## 🔁 OAuth Flow (Twitter Example)
+# 🔁 OAuth & Authentication Flows
 
-### Phase 1: Initiation (Frontend)
+*Production-grade PKCE OAuth 2.0 implementation with cross-window state management and blockchain integration*
 
-1. User clicks "Sync Twitter" on the React dashboard
-2. Frontend generates PKCE parameters:
-   - `code_verifier`: Random 43-character string
-   - `code_challenge`: SHA-256 hash of code_verifier, base64url encoded
-3. Frontend stores `code_verifier` in sessionStorage (critical for later)
-4. Frontend calls backend: `POST /api/channels/twitter/auth-url`
-   - Sends: `owner_address`, `code_challenge`
+## Twitter/Google/Discord Flow
 
-### Phase 2: Backend Authorization Setup
+1. User clicks "Sync" on Dashboard
+2. Frontend generates PKCE parameters (`code_verifier`, `code_challenge`) and stores verifier in sessionStorage
+3. Frontend → Backend: `POST /api/channels/{platform}/auth-url` with `owner_address` + `code_challenge`
+4. Backend generates random `state`, caches `{state: owner_address, code_challenge}` (10min TTL), returns OAuth URL
+5. Frontend opens popup with platform's OAuth authorization page
+6. User authorizes → Platform redirects to backend callback with `code` + `state`
+7. Backend validates and proxies redirect to Frontend
+8. Frontend callback component extracts params, sends `postMessage` to parent window with `{code, state}`
+9. Dashboard receives message, retrieves `code_verifier` from sessionStorage
+10. Dashboard → Backend: `POST /api/channels/{platform}/callback` with `{code, state, code_verifier}`
+11. Backend validates state, exchanges code for tokens (platform verifies PKCE), fetches user profile
+12. Backend creates/updates `User` + `ChannelIdentity` with encrypted tokens, dispatches smart contract job (`register_user` or `sync_user`)
+13. Popup closes, Dashboard displays toast notification and reloads connected accounts
 
-1. Backend generates `state` (40-character random string for CSRF protection)
-2. Backend caches state data in database for 10 minutes:
-   - Key: `twitter_oauth_state:{state}`
-   - Value: `{owner_address, code_challenge}`
-3. Backend builds Twitter OAuth URL with parameters:
-   - `client_id`, `redirect_uri`, `scope`, `state`, `code_challenge`, `code_challenge_method=S256`
-4. Backend returns `{auth_url, state}` to frontend
+## Telegram Flow
 
-### Phase 3: User Authorization (Popup)
+1. User clicks "Sync" → Frontend renders Telegram Login Widget in modal/page
+2. User authorizes via Telegram widget → Widget callback returns auth data with cryptographic hash
+3. Frontend → Backend: `POST /api/channels/telegram/callback` with `{owner_address, auth_data}`
+4. Backend verifies Telegram hash (HMAC-SHA256 using bot token), validates timestamp (prevents replay attacks)
+5. Backend creates/updates `User` + `ChannelIdentity` with Telegram metadata (no tokens stored)
+6. Backend dispatches smart contract job (`register_user` or `sync_user` based on vault status)
+7. Frontend receives success response, displays toast, reloads connected accounts
 
-1. Frontend opens popup with the Twitter OAuth URL
-2. User authorizes the app on Twitter's website
-3. Twitter redirects to: `https://aptsend-backend.test/api/channels/twitter/callback?code=xxx&state=yyy`
+## EVM / SOL Wallet Connection (Reown)
 
-### Phase 4: Backend Redirect to Frontend
+1. User clicks "Connect" → Dashboard triggers Reown AppKit connection flow
+2. Reown handles wallet signature verification (SIWE - Sign-In with Ethereum) on frontend
+3. Frontend → Backend: `POST /api/channels/{chain}/link-wallet` with `{owner_address, wallet_address, chain_id}`
+4. Backend validates EVM address format, checks for duplicate links across wallets
+5. Backend creates/updates `ChannelIdentity` with normalized address + chain metadata
+6. Backend dispatches smart contract job (`register_user` or `sync_user` based on vault status)
+7. Frontend receives success response, displays connected wallet in Dashboard
 
-1. Backend GET route catches redirect (`/api/channels/twitter/callback`)
-2. Backend validates parameters and redirects to React app: `http://localhost:5174/auth/twitter/callback?code=xxx&state=yyy`
-3. If error occurs, backend redirects with error parameter
+## Key Technical Complexities
 
-### Phase 5: Frontend Callback Handler (Popup)
+- **PKCE prevents authorization code interception** (essential for SPAs without client secrets)
+- **Cross-window postMessage coordination** handles popup → parent communication securely
+- **State caching with TTL** prevents CSRF and replay attacks across OAuth flows
+- **Telegram cryptographic verification** uses HMAC-SHA256 hash validation to prevent auth data forgery
+- **Multi-platform abstraction** (Twitter/Google/Discord share identical flow architecture)
+- **Wallet signature verification** via Reown AppKit ensures address ownership (SIWE standard for EVM)
+- **Address normalization and duplicate prevention** ensures unique wallet identities per owner address
+- **Encrypted token storage** for OAuth platforms with expiry tracking
+- **Async blockchain sync** queues Aptos smart contract calls (`register_user` creates vault, `sync_user` links to existing vault) without blocking authentication flows
+- **Duplicate prevention** ensures each social identity/wallet can only link to one Aptos owner address (but users can link multiple identities)
+- **Reown multi-chain support** enables universal wallet authentication (EVM chains + Solana)
 
-1. React TwitterCallback component loads in popup
-2. Component extracts `code` and `state` from URL (or `error` if authorization failed)
-3. Component sends postMessage to parent window:
-   - On success - Type: `TWITTER_OAUTH_CALLBACK`, Data: `{code, state}`
-   - On error - Type: `TWITTER_OAUTH_ERROR`, Data: `{error}`
-4. Popup closes after 500ms
-5. If no `window.opener` exists (direct URL access), redirects to dashboard with error state
-
-### Phase 6: Parent Window Processing
-
-1. Parent window receives postMessage (Dashboard)
-2. Retrieves `code_verifier` from sessionStorage
-3. Calls backend: `POST /api/channels/twitter/callback`
-   - Sends: `{code, state, code_verifier}`
-
-### Phase 7: Backend Token Exchange
-
-1. Backend retrieves cached data using `state`
-2. Backend validates state exists and matches
-3. Backend deletes cache entry (prevent replay attacks)
-4. Backend exchanges code for tokens with Twitter:
-   - Sends: `code`, `grant_type`, `client_id`, `client_secret`, `redirect_uri`, `code_verifier`
-   - Uses Basic Auth with `client_id` and `client_secret`
-5. Twitter validates PKCE: Verifies `code_verifier` matches original `code_challenge`
-6. Twitter returns tokens: `access_token`, `refresh_token`, `expires_in`
-
-### Phase 8: User Data & Storage
-
-1. Backend fetches Twitter user info using `access_token`
-   - Requests fields: `id`, `username`, `name`, `profile_image_url`
-2. Backend finds/creates User record by `owner_address`
-3. Backend checks if Twitter account is already linked to another wallet (prevents duplicate linking)
-4. Backend creates/updates ChannelIdentity:
-   - Stores encrypted tokens (`access_token`, `refresh_token`)
-   - Stores user metadata (username, name, profile_image_url)
-   - Sets `vault_status=0` (temporary vault, pending smart contract sync)
-   - Sets `token_expires_at` based on `expires_in`
-5. Backend dispatches appropriate smart contract job:
-   - If user has `primary_vault_address`: Dispatches `SyncUserJob` to call `sync_user` on the AptSend smart contract (links new channel to existing vault)
-   - If user has no vault: Dispatches `RegisterUserJob` to call `register_user` on the AptSend smart contract (creates primary vault and links channel)
-6. Backend returns success response with identity data to frontend
-
-### Phase 9: Frontend Update
-
-1. Frontend receives success response
-2. Frontend reloads accounts list
-3. Dashboard shows connected Twitter account
-4. Frontend cleans up: Removes `code_verifier` from sessionStorage
+This implementation follows OAuth 2.0, Telegram Login Widget, and Web3 wallet authentication best practices for production-grade identity linking.
 
 # AptSend Smart Contract Entrypoints
 
-AptSend enables users to send cryptocurrency to recipients on major social media platforms and crypto blockchains using familiar standard identifiers - social media handles, email addresses, phone numbers, or EVM addresses - without requiring the sender to know the recipient's Aptos wallet address or the recipient to have an Aptos wallet. The system uses a vault-based architecture with channel identity routing:
+Built on Move, AptSend enables users to send cryptocurrency on Aptos to recipients on major social media platforms and crypto blockchains using familiar standard identifiers - social media handles, email addresses, phone numbers, or EVM addresses - without requiring the sender to know the recipient's Aptos wallet address or the recipient to have an Aptos wallet. The system uses a vault-based architecture with channel identity routing:
 
 - **Primary Vaults**: Each registered user gets a vault linked to their Aptos wallet address
 - **Temporary Vaults**: Automatically created for unregistered recipients when they receive funds
