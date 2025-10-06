@@ -4,9 +4,10 @@ import {
   GoogleCallbackResponse 
 } from "../types/channelTypes";
 
-// import { API_BASE_URL } from "@/constants";
+import { API_BASE_URL } from "@/constants";
 
-const API_BASE_URL = "https://hostilely-unmarkable-opal.ngrok-free.dev/api";
+// const API_BASE_URL = "https://hostilely-unmarkable-opal.ngrok-free.dev/api";
+// const API_BASE_URL = "https://aptsend-backend.xyz/api";
 
 export async function getGoogleAuthUrl(
   ownerAddress: AccountAddress,
