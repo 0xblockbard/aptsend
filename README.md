@@ -18,6 +18,10 @@ Every user on every major social platform is now within reach as a direct channe
 - Send to **email addresses**
 - Send to **EVM or Solana addresses** (extensible to any blockchain)
 - Send via tweets to anyone on any channel
+   - Make a tweet in this format:
+   - To another user on X/Twitter: #aptsend [amount] [token] [identifier]
+   - To users on other channels #aptsend [amount] [token] [identifier] [channel] 
+   - Allowed other channels: email, evm, sol
 - Supports APT and any fungible asset on Aptos  
 - **Claimable Vaults**: Recipients without Aptos wallets receive funds in temporary vaults, incentivizing them to create a wallet and claim their assets
 - 0.2% transfer fee for sustainable operations
